@@ -1,0 +1,37 @@
+.tickets-container {
+  animation: fadeIn 0.3s ease-in;
+}
+
+.tickets-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.tickets-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.ticket-number {
+  font-weight: 600;
+  color: #1890ff;
+}
+
+.ticket-subject {
+  color: #262626;
+  font-weight: 500;
+  display: block;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ant-table-row:hover {
+  background-color: #fafafa;
+}

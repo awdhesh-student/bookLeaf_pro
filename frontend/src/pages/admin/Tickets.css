@@ -1,0 +1,54 @@
+.admin-tickets-container {
+  animation: fadeIn 0.3s ease-in;
+}
+
+.tickets-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.tickets-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.ticket-number {
+  font-weight: 600;
+  color: #1890ff;
+  font-size: 14px;
+}
+
+.ticket-subject {
+  color: #262626;
+  font-weight: 500;
+  display: block;
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.author-email {
+  color: #666;
+  font-size: 13px;
+}
+
+.ant-table-row:hover {
+  background-color: #fafafa;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

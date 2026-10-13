@@ -1,0 +1,49 @@
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 0 24px;
+}
+
+.header-content {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo {
+  color: white;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.user-menu {
+  color: white;
+}
+
+.app-sider {
+  background: #fff;
+  border-right: 1px solid #f0f0f0;
+}
+
+.app-content {
+  padding: 24px;
+  background-color: #fafafa;
+  min-height: 100%;
+}
+
+.ant-layout-sider {
+  background-color: #fff;
+}
+
+.ant-menu {
+  border-right: none;
+}
+
+.ant-menu-item,
+.ant-menu-submenu-title {
+  transition: all 0.3s ease;
+}

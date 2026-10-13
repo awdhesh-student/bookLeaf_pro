@@ -1,0 +1,88 @@
+.ticket-detail-container {
+  animation: fadeIn 0.3s ease-in;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.ticket-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 12px;
+}
+
+.ticket-title h1 {
+  margin: 0;
+  font-size: 20px;
+  flex: 1;
+}
+
+.ticket-number {
+  font-weight: 600;
+  color: #1890ff;
+  font-size: 14px;
+}
+
+.ticket-card,
+.conversation-card,
+.ai-draft-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.description-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+  color: #262626;
+}
+
+.message-item {
+  padding: 12px;
+  background: #fafafa;
+  border-radius: 6px;
+  margin-left: 12px;
+}
+
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  gap: 12px;
+}
+
+.message-header strong {
+  color: #262626;
+}
+
+.message-date {
+  font-size: 12px;
+  color: #999;
+  white-space: nowrap;
+}
+
+.message-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+  color: #262626;
+}
+
+.draft-content {
+  background: #f6f8fb;
+  padding: 16px;
+  border-radius: 6px;
+  border-left: 4px solid #1890ff;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+  color: #262626;
+}

@@ -1,0 +1,29 @@
+.tickets-new-container {
+  max-width: 800px;
+  margin: 0 auto;
+  animation: fadeIn 0.3s ease-in;
+}
+
+.ticket-form-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.ticket-type-selector {
+  margin-bottom: 24px;
+}
+
+.ant-form-item {
+  margin-bottom: 24px;
+}
+
+.ant-input,
+.ant-input-number,
+.ant-select-selector,
+.ant-picker {
+  border-radius: 4px;
+}
+
+.ant-form-item-label > label {
+  font-weight: 500;
+}

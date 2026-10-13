@@ -1,0 +1,46 @@
+const jwt = require('jsonwebtoken')
+const env = require('../config/env')
+const AppError = require('./AppError')
+
+const signAccessToken = (payload) => {
+  return jwt.sign(payload, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN })
+}
+
+const verifyAccessToken = (token) => {
+  try {
+    return jwt.verify(token, env.JWT_SECRET)
+  } catch {
+    throw new AppError('Authentication required.', {
+      statusCode: 401,
+      code: 'UNAUTHENTICATED',
+    })
+  }
+}
+
+const parseDurationToMs = (value) => {
+  if (/^\d+$/.test(value)) {
+    return Number(value) * 1000
+  }
+
+  const match = String(value).match(/^(\d+)([smhd])$/)
+  if (!match) {
+    return 24 * 60 * 60 * 1000
+  }
+
+  const amount = Number(match[1])
+  const unit = match[2]
+  const multipliers = {
+    s: 1000,
+    m: 60 * 1000,
+    h: 60 * 60 * 1000,
+    d: 24 * 60 * 60 * 1000,
+  }
+
+  return amount * multipliers[unit]
+}
+
+module.exports = {
+  signAccessToken,
+  verifyAccessToken,
+  parseDurationToMs,
+}

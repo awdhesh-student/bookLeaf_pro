@@ -1,0 +1,48 @@
+.books-container {
+  animation: fadeIn 0.3s ease-in;
+}
+
+.books-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.books-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.book-count {
+  font-size: 14px;
+  color: #666;
+  background: #f5f5f5;
+  padding: 4px 12px;
+  border-radius: 4px;
+}
+
+.book-title {
+  font-weight: 500;
+  color: #1890ff;
+  display: block;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.book-title:hover {
+  color: #0050b3;
+}
+
+.ant-table {
+  font-size: 14px;
+}
+
+.ant-table-row:hover {
+  background-color: #fafafa;
+}
