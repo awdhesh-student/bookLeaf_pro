@@ -28,7 +28,20 @@ const addMessageSchema = z.object({
   }),
 })
 
+const bulkUpdateTicketsSchema = z.object({
+  body: z.object({
+    ticketIds: z.array(z.string()).min(1, 'At least one ticket ID is required'),
+    updates: z.object({
+      status: z.enum(TICKET_STATUSES).optional(),
+      priority: z.enum(TICKET_PRIORITIES).optional(),
+      category: z.enum(TICKET_CATEGORIES).optional(),
+      assignedAdminId: z.string().optional().nullable(),
+    }).refine((obj) => Object.keys(obj).length > 0, 'At least one field must be provided for update'),
+  }),
+})
+
 module.exports = {
   updateTicketSchema,
   addMessageSchema,
+  bulkUpdateTicketsSchema,
 }

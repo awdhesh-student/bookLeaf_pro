@@ -74,10 +74,44 @@ export const authAPI = {
 // Author endpoints
 export const authorAPI = {
   getDashboard: () => apiClient.get('/author/dashboard'),
-  getBooks: () => apiClient.get('/author/books'),
+  getBooks: (filters) => {
+    const params = new URLSearchParams(filters).toString()
+    return apiClient.get(`/author/books${params ? `?${params}` : ''}`)
+  },
+  getBookStats: () => apiClient.get('/author/books/stats'),
+  exportBooksCSV: async (filters) => {
+    const params = new URLSearchParams(filters).toString()
+    const url = `${API_BASE_URL}/author/books/export/csv${params ? `?${params}` : ''}`
+    const response = await fetch(url, { credentials: 'include' })
+    const blob = await response.blob()
+    return blob
+  },
+  exportBooksJSON: async (filters) => {
+    const params = new URLSearchParams(filters).toString()
+    const url = `${API_BASE_URL}/author/books/export/json${params ? `?${params}` : ''}`
+    const response = await fetch(url, { credentials: 'include' })
+    return response.json()
+  },
   getTickets: (filters) => {
     const params = new URLSearchParams(filters).toString()
     return apiClient.get(`/author/tickets${params ? `?${params}` : ''}`)
+  },
+  searchTickets: (search, filters) => {
+    const params = new URLSearchParams({ search, ...filters }).toString()
+    return apiClient.get(`/author/tickets/search${params ? `?${params}` : ''}`)
+  },
+  exportTicketsCSV: async (filters) => {
+    const params = new URLSearchParams(filters).toString()
+    const url = `${API_BASE_URL}/author/tickets/export/csv${params ? `?${params}` : ''}`
+    const response = await fetch(url, { credentials: 'include' })
+    const blob = await response.blob()
+    return blob
+  },
+  exportTicketsJSON: async (filters) => {
+    const params = new URLSearchParams(filters).toString()
+    const url = `${API_BASE_URL}/author/tickets/export/json${params ? `?${params}` : ''}`
+    const response = await fetch(url, { credentials: 'include' })
+    return response.json()
   },
   createTicket: (data) => apiClient.post('/author/tickets', data),
   getTicketDetail: (ticketId) => apiClient.get(`/author/tickets/${ticketId}`),
@@ -89,6 +123,33 @@ export const adminAPI = {
     const params = new URLSearchParams(filters).toString()
     return apiClient.get(`/admin/tickets${params ? `?${params}` : ''}`)
   },
+  searchTickets: (search, filters) => {
+    const params = new URLSearchParams({ search, ...filters }).toString()
+    return apiClient.get(`/admin/tickets/search${params ? `?${params}` : ''}`)
+  },
+  getStatistics: (filters) => {
+    const params = new URLSearchParams(filters).toString()
+    return apiClient.get(`/admin/tickets/stats${params ? `?${params}` : ''}`)
+  },
+  getTicketsByAuthor: (filters) => {
+    const params = new URLSearchParams(filters).toString()
+    return apiClient.get(`/admin/tickets/by-author${params ? `?${params}` : ''}`)
+  },
+  exportTicketsCSV: async (filters) => {
+    const params = new URLSearchParams(filters).toString()
+    const url = `${API_BASE_URL}/admin/tickets/export/csv${params ? `?${params}` : ''}`
+    const response = await fetch(url, { credentials: 'include' })
+    const blob = await response.blob()
+    return blob
+  },
+  exportTicketsJSON: async (filters) => {
+    const params = new URLSearchParams(filters).toString()
+    const url = `${API_BASE_URL}/admin/tickets/export/json${params ? `?${params}` : ''}`
+    const response = await fetch(url, { credentials: 'include' })
+    return response.json()
+  },
+  bulkUpdateTickets: (ticketIds, updates) => 
+    apiClient.post('/admin/tickets/bulk-update', { ticketIds, updates }),
   getTicketDetail: (ticketId) => apiClient.get(`/admin/tickets/${ticketId}`),
   updateTicket: (ticketId, data) => apiClient.patch(`/admin/tickets/${ticketId}`, data),
   assignToSelf: (ticketId) => apiClient.post(`/admin/tickets/${ticketId}/assign-self`, {}),

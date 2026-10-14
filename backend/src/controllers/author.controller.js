@@ -5,6 +5,8 @@ const Book = require('../models/Book')
 const Ticket = require('../models/Ticket')
 const TicketMessage = require('../models/TicketMessage')
 const { TICKET_CATEGORIES } = require('../constants')
+const ticketService = require('../services/ticket.service')
+const bookService = require('../services/book.service')
 
 // GET /api/v1/author/dashboard
 const getDashboard = asyncHandler(async (req, res) => {
@@ -36,59 +38,35 @@ const getDashboard = asyncHandler(async (req, res) => {
 // GET /api/v1/author/books
 const getBooks = asyncHandler(async (req, res) => {
   const authorId = req.user.authorId
+  const { search, status, page = 1, limit = 10 } = req.query
 
-  const books = await Book.find({ authorId }).sort({ createdAt: -1 })
+  const result = await bookService.searchBooks(
+    authorId,
+    search,
+    { status },
+    parseInt(page),
+    parseInt(limit)
+  )
 
   res.status(200).json({
     success: true,
-    data: books,
+    data: result.books,
+    pagination: result.pagination,
   })
 })
 
 // GET /api/v1/author/tickets
 const getTickets = asyncHandler(async (req, res) => {
   const authorId = req.user.authorId
-  const { status, category, page = 1, limit = 10 } = req.query
+  const { page = 1, limit = 10 } = req.query
 
-  const query = { authorId }
-
-  if (status) {
-    query.status = status
-  }
-
-  if (category) {
-    query.category = category
-  }
-
-  const skip = (parseInt(page) - 1) * parseInt(limit)
-
-  const tickets = await Ticket.find(query)
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(parseInt(limit))
-    .lean()
-
-  // Populate book titles
-  for (const ticket of tickets) {
-    if (ticket.bookId) {
-      const book = await Book.findOne({ bookId: ticket.bookId }).lean()
-      ticket.bookTitle = book?.title || null
-    } else {
-      ticket.bookTitle = null
-    }
-  }
-
-  const total = await Ticket.countDocuments(query)
+  const query = { ...req.query, authorId }
+  const result = await ticketService.getPaginatedTickets(query, parseInt(page), parseInt(limit))
 
   res.status(200).json({
     success: true,
-    data: tickets,
-    pagination: {
-      total,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      pages: Math.ceil(total / parseInt(limit)),
-    },
+    data: result.tickets,
+    pagination: result.pagination,
   })
 })
 
@@ -187,10 +165,93 @@ const getTicketDetail = asyncHandler(async (req, res) => {
   })
 })
 
+// GET /api/v1/author/tickets/search
+const searchTickets = asyncHandler(async (req, res) => {
+  const authorId = req.user.authorId
+  const { search, page = 1, limit = 10 } = req.query
+
+  if (!search || search.trim().length === 0) {
+    throw new AppError('Search term is required.', {
+      statusCode: 400,
+      code: 'SEARCH_TERM_REQUIRED',
+    })
+  }
+
+  const result = await ticketService.searchTickets(search, { authorId }, parseInt(page), parseInt(limit))
+
+  res.status(200).json({
+    success: true,
+    data: result.tickets,
+    pagination: result.pagination,
+  })
+})
+
+// GET /api/v1/author/books/stats
+const getBookStats = asyncHandler(async (req, res) => {
+  const authorId = req.user.authorId
+
+  const stats = await bookService.getBookStatistics(authorId)
+
+  res.status(200).json({
+    success: true,
+    data: stats,
+  })
+})
+
+// GET /api/v1/author/books/export/csv
+const exportBooksCSV = asyncHandler(async (req, res) => {
+  const authorId = req.user.authorId
+
+  const csv = await bookService.exportBooksToCSV(authorId, req.query)
+
+  res.setHeader('Content-Type', 'text/csv')
+  res.setHeader('Content-Disposition', 'attachment; filename="books.csv"')
+  res.status(200).send(csv)
+})
+
+// GET /api/v1/author/books/export/json
+const exportBooksJSON = asyncHandler(async (req, res) => {
+  const authorId = req.user.authorId
+
+  const data = await bookService.exportBooksToJSON(authorId, req.query)
+
+  res.setHeader('Content-Type', 'application/json')
+  res.setHeader('Content-Disposition', 'attachment; filename="books.json"')
+  res.status(200).json(data)
+})
+
+// GET /api/v1/author/tickets/export/csv
+const exportTicketsCSV = asyncHandler(async (req, res) => {
+  const authorId = req.user.authorId
+
+  const csv = await ticketService.exportTicketsToCSV({ ...req.query, authorId })
+
+  res.setHeader('Content-Type', 'text/csv')
+  res.setHeader('Content-Disposition', 'attachment; filename="tickets.csv"')
+  res.status(200).send(csv)
+})
+
+// GET /api/v1/author/tickets/export/json
+const exportTicketsJSON = asyncHandler(async (req, res) => {
+  const authorId = req.user.authorId
+
+  const data = await ticketService.exportTicketsToJSON({ ...req.query, authorId })
+
+  res.setHeader('Content-Type', 'application/json')
+  res.setHeader('Content-Disposition', 'attachment; filename="tickets.json"')
+  res.status(200).json(data)
+})
+
 module.exports = {
   getDashboard,
   getBooks,
   getTickets,
   createTicket,
   getTicketDetail,
+  searchTickets,
+  getBookStats,
+  exportBooksCSV,
+  exportBooksJSON,
+  exportTicketsCSV,
+  exportTicketsJSON,
 }

@@ -5,63 +5,18 @@ const TicketMessage = require('../models/TicketMessage')
 const Book = require('../models/Book')
 const AuthorProfile = require('../models/AuthorProfile')
 const { TICKET_CATEGORIES, TICKET_PRIORITIES, TICKET_STATUSES, MESSAGE_TYPES } = require('../constants')
-
-const SORT_WHITELIST = ['createdAt', 'priority', 'status']
+const ticketService = require('../services/ticket.service')
 
 // GET /api/v1/admin/tickets
 const getTickets = asyncHandler(async (req, res) => {
-  const { status, priority, category, page = 1, limit = 10, sort = 'createdAt', order = 'desc' } = req.query
+  const { page = 1, limit = 10 } = req.query
 
-  const query = {}
-
-  if (status) {
-    query.status = status
-  }
-
-  if (priority) {
-    query.priority = priority
-  }
-
-  if (category) {
-    query.category = category
-  }
-
-  // Validate sort field
-  const sortField = SORT_WHITELIST.includes(sort) ? sort : 'createdAt'
-  const sortOrder = order === 'asc' ? 1 : -1
-
-  const skip = (parseInt(page) - 1) * parseInt(limit)
-
-  const tickets = await Ticket.find(query)
-    .sort({ [sortField]: sortOrder })
-    .skip(skip)
-    .limit(parseInt(limit))
-    .lean()
-
-  // Populate author emails and book titles
-  for (const ticket of tickets) {
-    const authorProfile = await AuthorProfile.findOne({ authorId: ticket.authorId }).lean()
-    ticket.authorEmail = authorProfile?.email || 'Unknown'
-
-    if (ticket.bookId) {
-      const book = await Book.findOne({ bookId: ticket.bookId }).lean()
-      ticket.bookTitle = book?.title || null
-    } else {
-      ticket.bookTitle = null
-    }
-  }
-
-  const total = await Ticket.countDocuments(query)
+  const result = await ticketService.getPaginatedTickets(req.query, parseInt(page), parseInt(limit))
 
   res.status(200).json({
     success: true,
-    data: tickets,
-    pagination: {
-      total,
-      page: parseInt(page),
-      limit: parseInt(limit),
-      pages: Math.ceil(total / parseInt(limit)),
-    },
+    data: result.tickets,
+    pagination: result.pagination,
   })
 })
 
@@ -291,6 +246,97 @@ const generateAIDraft = asyncHandler(async (req, res) => {
   })
 })
 
+// POST /api/v1/admin/tickets/search
+const searchTickets = asyncHandler(async (req, res) => {
+  const { search, page = 1, limit = 10 } = req.query
+
+  if (!search || search.trim().length === 0) {
+    throw new AppError('Search term is required.', {
+      statusCode: 400,
+      code: 'SEARCH_TERM_REQUIRED',
+    })
+  }
+
+  const result = await ticketService.searchTickets(search, req.query, parseInt(page), parseInt(limit))
+
+  res.status(200).json({
+    success: true,
+    data: result.tickets,
+    pagination: result.pagination,
+  })
+})
+
+// GET /api/v1/admin/tickets/stats
+const getStatistics = asyncHandler(async (req, res) => {
+  const stats = await ticketService.getTicketStatistics(req.query)
+
+  res.status(200).json({
+    success: true,
+    data: stats,
+  })
+})
+
+// GET /api/v1/admin/tickets/by-author
+const getTicketsByAuthor = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 10 } = req.query
+
+  const result = await ticketService.getTicketsByAuthor(parseInt(page), parseInt(limit))
+
+  res.status(200).json({
+    success: true,
+    data: result.authorStats,
+    pagination: result.pagination,
+  })
+})
+
+// POST /api/v1/admin/tickets/export/csv
+const exportTicketsCSV = asyncHandler(async (req, res) => {
+  const csv = await ticketService.exportTicketsToCSV(req.query)
+
+  res.setHeader('Content-Type', 'text/csv')
+  res.setHeader('Content-Disposition', 'attachment; filename="tickets.csv"')
+  res.status(200).send(csv)
+})
+
+// POST /api/v1/admin/tickets/export/json
+const exportTicketsJSON = asyncHandler(async (req, res) => {
+  const data = await ticketService.exportTicketsToJSON(req.query)
+
+  res.setHeader('Content-Type', 'application/json')
+  res.setHeader('Content-Disposition', 'attachment; filename="tickets.json"')
+  res.status(200).json(data)
+})
+
+// POST /api/v1/admin/tickets/bulk-update
+const bulkUpdateTickets = asyncHandler(async (req, res) => {
+  const { ticketIds, updates } = req.validated.body
+
+  if (!Array.isArray(ticketIds) || ticketIds.length === 0) {
+    throw new AppError('Please provide at least one ticket ID.', {
+      statusCode: 400,
+      code: 'INVALID_TICKET_IDS',
+    })
+  }
+
+  if (!updates || Object.keys(updates).length === 0) {
+    throw new AppError('Please provide at least one field to update.', {
+      statusCode: 400,
+      code: 'NO_UPDATES_PROVIDED',
+    })
+  }
+
+  const result = await ticketService.bulkUpdateTickets(ticketIds, updates)
+
+  res.status(200).json({
+    success: true,
+    data: {
+      message: `Updated ${result.modifiedCount} ticket(s)`,
+      matchedCount: result.matchedCount,
+      modifiedCount: result.modifiedCount,
+    },
+  })
+})
+
 module.exports = {
   getTickets,
   getTicketDetail,
@@ -298,4 +344,10 @@ module.exports = {
   assignToSelf,
   addMessage,
   generateAIDraft,
+  searchTickets,
+  getStatistics,
+  getTicketsByAuthor,
+  exportTicketsCSV,
+  exportTicketsJSON,
+  bulkUpdateTickets,
 }
