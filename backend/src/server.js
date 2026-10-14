@@ -35,7 +35,7 @@ const startServer = async () => {
     console.log(`Server is running on port ${config.PORT}`)
     try {
       const aiService = require('./services/ai.service').getInstance()
-      console.log(`[AI Service] ${aiService.getStatus().available ? 'OpenAI available' : 'Using mock classification (OpenAI not configured)'}`)
+      console.log(`[AI Service] ${aiService.getStatus().available ? 'Google Gemini available' : 'Using mock classification (Gemini API key not configured)'}`)
     } catch (e) {
       console.warn('[AI Service] Error:', e.message)
     }

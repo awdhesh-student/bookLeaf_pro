@@ -172,7 +172,7 @@ try {
 console.log('\n=== Test Suite Complete ===\n')
 console.log('Summary:')
 console.log('- AI Service: Mock classification and draft generation always available')
-console.log('- Real OpenAI integration: Set OPENAI_API_KEY in .env to enable')
+console.log('- Real Gemini integration: Set GEMINI_API_KEY in .env to enable')
 console.log('- All schemas validate correctly')
 console.log('- Knowledge base and prompts generate successfully')
 console.log('- Error handling works as expected')

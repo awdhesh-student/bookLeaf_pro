@@ -5,9 +5,17 @@
 
 const path = require('path')
 const dotenv = require('dotenv')
+const crypto = require('crypto')
 
 // Load .env file
 dotenv.config({ path: path.join(__dirname, '../../.env') })
+
+/**
+ * Generate a random password for seeding (if not provided)
+ */
+const generateRandomPassword = () => {
+  return crypto.randomBytes(12).toString('hex').slice(0, 16)
+}
 
 /**
  * Get configuration with optional defaults
@@ -21,15 +29,17 @@ const getConfig = () => ({
   JWT_SECRET: process.env.JWT_SECRET,
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '1d',
   COOKIE_NAME: process.env.COOKIE_NAME || 'bookleaf_session',
-  OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
-  OPENAI_MODEL: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+  // Google Gemini API configuration (Free tier available)
+  GEMINI_API_KEY: process.env.GEMINI_API_KEY || '',
+  GEMINI_MODEL: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
   AI_TIMEOUT_MS: parseInt(process.env.AI_TIMEOUT_MS || 20000),
   AI_MAX_RETRIES: parseInt(process.env.AI_MAX_RETRIES || 1),
   AI_MAX_OUTPUT_TOKENS: parseInt(process.env.AI_MAX_OUTPUT_TOKENS || 700),
   LOG_LEVEL: process.env.LOG_LEVEL || 'info',
-  SEED_AUTHOR_PASSWORD: process.env.SEED_AUTHOR_PASSWORD || 'Author@12345',
-  SEED_ADMIN_EMAIL: process.env.SEED_ADMIN_EMAIL || 'admin@bookleaf.com',
-  SEED_ADMIN_PASSWORD: process.env.SEED_ADMIN_PASSWORD || 'Admin@12345',
+  // Seeding credentials - generate if not provided (useful for development)
+  SEED_AUTHOR_PASSWORD: process.env.SEED_AUTHOR_PASSWORD || generateRandomPassword(),
+  SEED_ADMIN_EMAIL: process.env.SEED_ADMIN_EMAIL || 'admin@bookleaf.local',
+  SEED_ADMIN_PASSWORD: process.env.SEED_ADMIN_PASSWORD || generateRandomPassword(),
 })
 
 module.exports = getConfig()

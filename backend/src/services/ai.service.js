@@ -1,5 +1,5 @@
 const config = require('../config/config')
-const { classificationSchema, draftResponseSchema, aiOutputSchema } = require('../ai/schemas')
+const { classificationSchema, draftResponseSchema } = require('../ai/schemas')
 const { buildClassificationPrompt, buildDraftPrompt } = require('../ai/prompts')
 
 /**
@@ -14,31 +14,29 @@ const createAIError = (message, code, originalError = null) => {
 }
 
 /**
- * Initialize OpenAI client if available
+ * Initialize Google Gemini client if available
  */
-const initializeOpenAIClient = () => {
+const initializeGeminiClient = () => {
   try {
-    const OpenAI = require('openai').default
-    return new OpenAI({
-      apiKey: env.OPENAI_API_KEY,
-    })
+    const { GoogleGenerativeAI } = require('@google/generative-ai')
+    return new GoogleGenerativeAI(config.GEMINI_API_KEY)
   } catch (error) {
-    console.warn('[AI] OpenAI SDK not available or error initializing:', error.message)
+    console.warn('[AI] Google Generative AI SDK not available:', error.message)
     return null
   }
 }
 
 /**
- * Create AI Service instance (functional approach)
+ * Create AI Service instance (functional approach - using Google Gemini)
  */
 const createAIService = () => {
-  const apiKey = config.OPENAI_API_KEY
-  const model = config.OPENAI_MODEL
+  const apiKey = config.GEMINI_API_KEY
+  const model = config.GEMINI_MODEL
   const timeout = config.AI_TIMEOUT_MS
   const maxRetries = config.AI_MAX_RETRIES
   const maxTokens = config.AI_MAX_OUTPUT_TOKENS
   const isAvailable = !!apiKey
-  const client = isAvailable ? initializeOpenAIClient() : null
+  const client = isAvailable ? initializeGeminiClient() : null
 
   /**
    * Mock classification for when AI is unavailable
@@ -140,7 +138,7 @@ const createAIService = () => {
   }
 
   /**
-   * Call OpenAI API with retry logic
+   * Call Google Gemini API with error handling and retry logic
    */
   const callAI = async (prompt, type = 'general') => {
     if (!client) {
@@ -150,29 +148,29 @@ const createAIService = () => {
     let lastError
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
+        const model_instance = client.getGenerativeModel({ model })
+
         const response = await Promise.race([
-          client.chat.completions.create({
-            model,
-            messages: [
-              {
-                role: 'system',
-                content:
-                  'You are a professional support assistant for BookLeaf Publishing. Always respond with valid JSON only, no markdown formatting.',
-              },
-              {
-                role: 'user',
-                content: prompt,
-              },
-            ],
-            max_tokens: maxTokens,
-            temperature: type === 'draft' ? 0.7 : 0.2,
+          model_instance.generateContent({
+            contents: [{
+              role: 'user',
+              parts: [{
+                text: `You are a professional support assistant for BookLeaf Publishing. Always respond with ONLY valid JSON, no markdown formatting or code blocks.\n\n${prompt}`,
+              }],
+            }],
+            generationConfig: {
+              maxOutputTokens: maxTokens,
+              temperature: type === 'draft' ? 0.7 : 0.2,
+            },
           }),
           new Promise((_, reject) =>
             setTimeout(() => reject(new Error('AI timeout')), timeout)
           ),
         ])
 
-        const content = response.choices[0].message.content.trim()
+        const content = response.response.text().trim()
+
+        // Extract JSON if wrapped in markdown code blocks
         const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/) ||
           content.match(/```\n?([\s\S]*?)\n?```/) || [null, content]
         const jsonStr = jsonMatch[1] || content
@@ -224,6 +222,7 @@ const createAIService = () => {
       const parsed = JSON.parse(result)
       return draftResponseSchema.parse(parsed)
     } catch (error) {
+      console.log("---------------", error)
       console.error('[AI Draft Error]', error.message)
       throw createAIError('Draft generation failed', 'DRAFT_GENERATION_FAILED', error)
     }
@@ -234,6 +233,7 @@ const createAIService = () => {
    */
   const getStatus = () => ({
     available: isAvailable,
+    provider: 'Google Gemini (Free Tier)',
     model,
     timeout,
     maxRetries,
