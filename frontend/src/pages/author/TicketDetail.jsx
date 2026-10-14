@@ -177,17 +177,6 @@ export default function AuthorTicketDetail() {
           <Empty description="No messages yet. Awaiting support team response." />
         )}
       </Card>
-
-      {ticket.aiDraft && (
-        <Card title="AI Generated Draft" className="ai-draft-card" style={{ marginTop: '24px' }}>
-          <div className="draft-content">{ticket.aiDraft}</div>
-          <div style={{ marginTop: '12px' }}>
-            <Tag color="blue">
-              Processing Status: {ticket.aiProcessingStatus || 'N/A'}
-            </Tag>
-          </div>
-        </Card>
-      )}
     </div>
   )
 }
