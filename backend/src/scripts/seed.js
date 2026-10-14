@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt')
 const mongoose = require('mongoose')
 const { z } = require('zod')
 
-const env = require('../config/env')
+const config = require('../config/config')
 const connectToDB = require('../config/database')
 const { ROLES, SEED_EXPECTATIONS } = require('../constants')
 const AuthorProfile = require('../models/AuthorProfile')
@@ -137,7 +137,7 @@ const upsertAuthorAndBooks = async (author, authorPasswordHash) => {
 
 const upsertAdmin = async (adminPasswordHash) => {
   await upsertUser({
-    email: env.SEED_ADMIN_EMAIL.toLowerCase(),
+    email: config.SEED_ADMIN_EMAIL.toLowerCase(),
     passwordHash: adminPasswordHash,
     role: ROLES.ADMIN,
     authorId: null,
@@ -196,8 +196,8 @@ const seed = async () => {
   await connectToDB()
 
   const [authorPasswordHash, adminPasswordHash] = await Promise.all([
-    bcrypt.hash(env.SEED_AUTHOR_PASSWORD, 10),
-    bcrypt.hash(env.SEED_ADMIN_PASSWORD, 10),
+    bcrypt.hash(config.SEED_AUTHOR_PASSWORD, 10),
+    bcrypt.hash(config.SEED_ADMIN_PASSWORD, 10),
   ])
 
   for (const author of dataset.authors) {
@@ -215,7 +215,7 @@ const seed = async () => {
   console.log('Imported totals:', imported)
   console.log(`Author logins: ${authorLogins}`)
   console.log(`Admin logins: ${adminLogins}`)
-  console.log(`Admin email: ${env.SEED_ADMIN_EMAIL}`)
+  console.log(`Admin email: ${config.SEED_ADMIN_EMAIL}`)
   console.log('Author emails use the source dataset addresses.')
 }
 

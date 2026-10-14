@@ -17,7 +17,7 @@ const validate = (schema) => (req, res, next) => {
 
   if (!result.success) {
     return next(
-      new AppError(formatZodMessage(result.error), {
+      AppError(formatZodMessage(result.error), {
         statusCode: 400,
         code: 'VALIDATION_ERROR',
       })

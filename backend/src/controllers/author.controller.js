@@ -74,12 +74,13 @@ const getTickets = asyncHandler(async (req, res) => {
 const createTicket = asyncHandler(async (req, res) => {
   const authorId = req.user.authorId
   const { subject, description, category, bookId } = req.validated.body
+  const aiService = require('../services/ai.service').getInstance()
 
   // Validate bookId if provided
   if (bookId) {
     const book = await Book.findOne({ bookId, authorId })
     if (!book) {
-      throw new AppError('Book not found or does not belong to you.', {
+      throw AppError('Book not found or does not belong to you.', {
         statusCode: 404,
         code: 'BOOK_NOT_FOUND',
       })
@@ -88,7 +89,7 @@ const createTicket = asyncHandler(async (req, res) => {
 
   // Validate category
   if (!TICKET_CATEGORIES.includes(category)) {
-    throw new AppError('Invalid category.', {
+    throw AppError('Invalid category.', {
       statusCode: 400,
       code: 'INVALID_CATEGORY',
     })
@@ -106,12 +107,35 @@ const createTicket = asyncHandler(async (req, res) => {
     description,
     category,
     status: 'Open',
-    priority: 'Medium', // Will be overridden by AI on Day 3
-    categorySource: 'admin',
-    prioritySource: 'admin',
+    priority: 'Medium',
+    categorySource: 'ai',
+    prioritySource: 'ai',
+    aiProcessingStatus: 'pending',
   })
 
   await ticket.save()
+
+  // Trigger AI classification asynchronously (non-blocking)
+  if (aiService.isServiceAvailable()) {
+    try {
+      const classification = await aiService.classifyTicket(ticket)
+      ticket.category = classification.category
+      ticket.priority = classification.priority
+      ticket.aiProcessingStatus = 'completed'
+    } catch (error) {
+      console.warn('[Ticket Creation] AI Classification failed:', error.message)
+      ticket.aiProcessingStatus = 'failed'
+      ticket.aiErrorCode = error.code || 'UNKNOWN_ERROR'
+    }
+    await ticket.save()
+  } else {
+    // Use mock classification
+    const mockClassification = aiService.getMockClassification(ticket)
+    ticket.category = mockClassification.category
+    ticket.priority = mockClassification.priority
+    ticket.aiProcessingStatus = 'completed'
+    await ticket.save()
+  }
 
   res.status(201).json({
     success: true,
@@ -127,14 +151,14 @@ const getTicketDetail = asyncHandler(async (req, res) => {
   const ticket = await Ticket.findById(id).lean()
 
   if (!ticket) {
-    throw new AppError('Ticket not found.', {
+    throw AppError('Ticket not found.', {
       statusCode: 404,
       code: 'TICKET_NOT_FOUND',
     })
   }
 
   if (ticket.authorId !== authorId) {
-    throw new AppError('You do not have access to this ticket.', {
+    throw AppError('You do not have access to this ticket.', {
       statusCode: 403,
       code: 'FORBIDDEN',
     })
@@ -171,7 +195,7 @@ const searchTickets = asyncHandler(async (req, res) => {
   const { search, page = 1, limit = 10 } = req.query
 
   if (!search || search.trim().length === 0) {
-    throw new AppError('Search term is required.', {
+    throw AppError('Search term is required.', {
       statusCode: 400,
       code: 'SEARCH_TERM_REQUIRED',
     })

@@ -320,8 +320,26 @@ export default function AdminTicketDetail() {
           <div className="draft-content">{ticket.aiDraft}</div>
           <div style={{ marginTop: '12px' }}>
             <Tag color="blue">Status: {ticket.aiProcessingStatus || 'Ready'}</Tag>
+            {ticket.aiErrorCode && (
+              <Tag color="red">Error: {ticket.aiErrorCode}</Tag>
+            )}
+          </div>
+          <div style={{ marginTop: '16px' }}>
+            <p style={{ fontSize: '12px', color: '#888' }}>
+              💡 You can edit this draft before sending as a public reply. Copy the text and paste it in the "Add Message" section below.
+            </p>
           </div>
         </Card>
+      )}
+
+      {ticket.aiProcessingStatus === 'failed' && (
+        <Alert
+          message="AI draft generation failed"
+          description="Please write a manual response or try generating the draft again."
+          type="warning"
+          showIcon
+          style={{ marginTop: '24px' }}
+        />
       )}
 
       <Card title="Conversation" className="conversation-card" style={{ marginTop: '24px' }}>

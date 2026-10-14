@@ -11,7 +11,7 @@ const login = async ({ email, password }) => {
   const user = await User.findOne({ email: normalizeEmail(email) }).select('+passwordHash')
 
   if (!user || !user.isActive) {
-    throw new AppError(GENERIC_AUTH_ERROR, {
+    throw AppError(GENERIC_AUTH_ERROR, {
       statusCode: 401,
       code: 'INVALID_CREDENTIALS',
     })
@@ -19,7 +19,7 @@ const login = async ({ email, password }) => {
 
   const passwordMatches = await bcrypt.compare(password, user.passwordHash)
   if (!passwordMatches) {
-    throw new AppError(GENERIC_AUTH_ERROR, {
+    throw AppError(GENERIC_AUTH_ERROR, {
       statusCode: 401,
       code: 'INVALID_CREDENTIALS',
     })
@@ -40,7 +40,7 @@ const login = async ({ email, password }) => {
 const getCurrentUser = async (userId) => {
   const user = await User.findById(userId)
   if (!user || !user.isActive) {
-    throw new AppError('Authentication required.', {
+    throw AppError('Authentication required.', {
       statusCode: 401,
       code: 'UNAUTHENTICATED',
     })

@@ -155,4 +155,5 @@ export const adminAPI = {
   assignToSelf: (ticketId) => apiClient.post(`/admin/tickets/${ticketId}/assign-self`, {}),
   addMessage: (ticketId, data) => apiClient.post(`/admin/tickets/${ticketId}/messages`, data),
   generateAIDraft: (ticketId) => apiClient.post(`/admin/tickets/${ticketId}/ai-draft`, {}),
+  classifyTicket: (ticketId) => apiClient.post(`/admin/tickets/${ticketId}/ai-classify`, {}),
 }

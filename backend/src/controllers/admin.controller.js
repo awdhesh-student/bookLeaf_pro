@@ -27,7 +27,7 @@ const getTicketDetail = asyncHandler(async (req, res) => {
   const ticket = await Ticket.findById(id).lean()
 
   if (!ticket) {
-    throw new AppError('Ticket not found.', {
+    throw AppError('Ticket not found.', {
       statusCode: 404,
       code: 'TICKET_NOT_FOUND',
     })
@@ -61,7 +61,7 @@ const updateTicket = asyncHandler(async (req, res) => {
   const ticket = await Ticket.findById(id)
 
   if (!ticket) {
-    throw new AppError('Ticket not found.', {
+    throw AppError('Ticket not found.', {
       statusCode: 404,
       code: 'TICKET_NOT_FOUND',
     })
@@ -70,7 +70,7 @@ const updateTicket = asyncHandler(async (req, res) => {
   // Validate and update status
   if (status !== undefined) {
     if (!TICKET_STATUSES.includes(status)) {
-      throw new AppError('Invalid status.', {
+      throw AppError('Invalid status.', {
         statusCode: 400,
         code: 'INVALID_STATUS',
       })
@@ -81,7 +81,7 @@ const updateTicket = asyncHandler(async (req, res) => {
   // Validate and update priority
   if (priority !== undefined) {
     if (!TICKET_PRIORITIES.includes(priority)) {
-      throw new AppError('Invalid priority.', {
+      throw AppError('Invalid priority.', {
         statusCode: 400,
         code: 'INVALID_PRIORITY',
       })
@@ -96,7 +96,7 @@ const updateTicket = asyncHandler(async (req, res) => {
   // Validate and update category
   if (category !== undefined) {
     if (!TICKET_CATEGORIES.includes(category)) {
-      throw new AppError('Invalid category.', {
+      throw AppError('Invalid category.', {
         statusCode: 400,
         code: 'INVALID_CATEGORY',
       })
@@ -139,7 +139,7 @@ const assignToSelf = asyncHandler(async (req, res) => {
   const ticket = await Ticket.findById(id)
 
   if (!ticket) {
-    throw new AppError('Ticket not found.', {
+    throw AppError('Ticket not found.', {
       statusCode: 404,
       code: 'TICKET_NOT_FOUND',
     })
@@ -171,7 +171,7 @@ const addMessage = asyncHandler(async (req, res) => {
 
   // Validate message type
   if (!Object.values(MESSAGE_TYPES).includes(type)) {
-    throw new AppError('Invalid message type.', {
+    throw AppError('Invalid message type.', {
       statusCode: 400,
       code: 'INVALID_MESSAGE_TYPE',
     })
@@ -180,7 +180,7 @@ const addMessage = asyncHandler(async (req, res) => {
   const ticket = await Ticket.findById(id)
 
   if (!ticket) {
-    throw new AppError('Ticket not found.', {
+    throw AppError('Ticket not found.', {
       statusCode: 404,
       code: 'TICKET_NOT_FOUND',
     })
@@ -215,35 +215,89 @@ const addMessage = asyncHandler(async (req, res) => {
 // POST /api/v1/admin/tickets/:id/ai-draft
 const generateAIDraft = asyncHandler(async (req, res) => {
   const { id } = req.params
+  const aiService = require('../services/ai.service').getInstance()
 
   const ticket = await Ticket.findById(id)
 
   if (!ticket) {
-    throw new AppError('Ticket not found.', {
+    throw AppError('Ticket not found.', {
       statusCode: 404,
       code: 'TICKET_NOT_FOUND',
     })
   }
 
-  // Placeholder for AI integration (Day 3)
-  ticket.aiDraft = 'AI draft generation coming in Day 3.'
-  ticket.aiProcessingStatus = 'idle'
-
+  // Mark as processing
+  ticket.aiProcessingStatus = 'pending'
   await ticket.save()
 
-  const authorProfile = await AuthorProfile.findOne({ authorId: ticket.authorId }).lean()
-  const bookDetails = ticket.bookId ? await Book.findOne({ bookId: ticket.bookId }).lean() : null
-  const messages = await TicketMessage.find({ ticketId: ticket._id }).sort({ createdAt: 1 }).lean()
+  try {
+    // Get author and book details
+    const authorProfile = await AuthorProfile.findOne({ authorId: ticket.authorId }).lean()
+    const bookDetails = ticket.bookId ? await Book.findOne({ bookId: ticket.bookId }).lean() : null
 
-  res.status(200).json({
-    success: true,
-    data: {
-      ...ticket.toObject(),
-      authorEmail: authorProfile?.email || 'Unknown',
-      bookTitle: bookDetails?.title || null,
-      messages,
-    },
-  })
+    // Get recent public messages for context
+    const recentMessages = await TicketMessage.find({
+      ticketId: ticket._id,
+      type: 'public_reply',
+    })
+      .sort({ createdAt: -1 })
+      .limit(3)
+      .lean()
+
+    const recentHistory = recentMessages
+      .reverse()
+      .map((msg) => `[${msg.createdAt}] ${msg.body}`)
+      .join('\n')
+
+    // Generate draft
+    const draftResult = await aiService.generateDraft(ticket, authorProfile, bookDetails, recentHistory)
+
+    // Save draft
+    ticket.aiDraft = draftResult.draft
+    ticket.aiProcessingStatus = 'completed'
+    ticket.aiErrorCode = null
+
+    await ticket.save()
+
+    const allMessages = await TicketMessage.find({ ticketId: ticket._id }).sort({ createdAt: 1 }).lean()
+
+    res.status(200).json({
+      success: true,
+      data: {
+        ...ticket.toObject(),
+        authorEmail: authorProfile?.email || 'Unknown',
+        bookTitle: bookDetails?.title || null,
+        messages: allMessages,
+      },
+    })
+  } catch (error) {
+    // Handle AI error gracefully
+    console.error('[generateAIDraft] AI Error:', error.message)
+
+    ticket.aiProcessingStatus = 'failed'
+    ticket.aiErrorCode = error.code || 'UNKNOWN_ERROR'
+
+    await ticket.save()
+
+    // Still return the ticket so admin can write manual response
+    const authorProfile = await AuthorProfile.findOne({ authorId: ticket.authorId }).lean()
+    const bookDetails = ticket.bookId ? await Book.findOne({ bookId: ticket.bookId }).lean() : null
+    const messages = await TicketMessage.find({ ticketId: ticket._id }).sort({ createdAt: 1 }).lean()
+
+    res.status(200).json({
+      success: true,
+      data: {
+        ...ticket.toObject(),
+        authorEmail: authorProfile?.email || 'Unknown',
+        bookTitle: bookDetails?.title || null,
+        messages,
+      },
+      warning: {
+        message: 'AI draft generation failed. Please write a manual response.',
+        errorCode: ticket.aiErrorCode,
+      },
+    })
+  }
 })
 
 // POST /api/v1/admin/tickets/search
@@ -251,7 +305,7 @@ const searchTickets = asyncHandler(async (req, res) => {
   const { search, page = 1, limit = 10 } = req.query
 
   if (!search || search.trim().length === 0) {
-    throw new AppError('Search term is required.', {
+    throw AppError('Search term is required.', {
       statusCode: 400,
       code: 'SEARCH_TERM_REQUIRED',
     })
@@ -312,14 +366,14 @@ const bulkUpdateTickets = asyncHandler(async (req, res) => {
   const { ticketIds, updates } = req.validated.body
 
   if (!Array.isArray(ticketIds) || ticketIds.length === 0) {
-    throw new AppError('Please provide at least one ticket ID.', {
+    throw AppError('Please provide at least one ticket ID.', {
       statusCode: 400,
       code: 'INVALID_TICKET_IDS',
     })
   }
 
   if (!updates || Object.keys(updates).length === 0) {
-    throw new AppError('Please provide at least one field to update.', {
+    throw AppError('Please provide at least one field to update.', {
       statusCode: 400,
       code: 'NO_UPDATES_PROVIDED',
     })
@@ -337,6 +391,80 @@ const bulkUpdateTickets = asyncHandler(async (req, res) => {
   })
 })
 
+// POST /api/v1/admin/tickets/:id/ai-classify
+const classifyTicketWithAI = asyncHandler(async (req, res) => {
+  const { id } = req.params
+  const aiService = require('../services/ai.service').getInstance()
+
+  const ticket = await Ticket.findById(id)
+
+  if (!ticket) {
+    throw AppError('Ticket not found.', {
+      statusCode: 404,
+      code: 'TICKET_NOT_FOUND',
+    })
+  }
+
+  // Don't override if already classified by admin
+  if (ticket.categorySource === 'admin' && ticket.prioritySource === 'admin') {
+    throw AppError('Ticket is already manually classified.', {
+      statusCode: 400,
+      code: 'ALREADY_CLASSIFIED',
+    })
+  }
+
+  ticket.aiProcessingStatus = 'pending'
+  await ticket.save()
+
+  try {
+    // Classify
+    const classification = await aiService.classifyTicket(ticket)
+
+    // Only update if not already set by admin
+    if (ticket.categorySource !== 'admin') {
+      ticket.category = classification.category
+      ticket.categorySource = 'ai'
+    }
+
+    if (ticket.prioritySource !== 'admin') {
+      ticket.priority = classification.priority
+      ticket.prioritySource = 'ai'
+    }
+
+    ticket.aiProcessingStatus = 'completed'
+    ticket.aiErrorCode = null
+
+    await ticket.save()
+
+    res.status(200).json({
+      success: true,
+      data: {
+        ticketNumber: ticket.ticketNumber,
+        category: ticket.category,
+        categorySource: ticket.categorySource,
+        priority: ticket.priority,
+        prioritySource: ticket.prioritySource,
+        aiReason: classification.reason,
+      },
+    })
+  } catch (error) {
+    console.error('[classifyTicketWithAI] AI Error:', error.message)
+
+    ticket.aiProcessingStatus = 'failed'
+    ticket.aiErrorCode = error.code || 'UNKNOWN_ERROR'
+
+    await ticket.save()
+
+    throw AppError('AI classification failed. Please classify manually.', {
+      statusCode: 500,
+      code: 'AI_CLASSIFICATION_FAILED',
+      details: {
+        errorCode: ticket.aiErrorCode,
+      },
+    })
+  }
+})
+
 module.exports = {
   getTickets,
   getTicketDetail,
@@ -344,6 +472,7 @@ module.exports = {
   assignToSelf,
   addMessage,
   generateAIDraft,
+  classifyTicketWithAI,
   searchTickets,
   getStatistics,
   getTicketsByAuthor,

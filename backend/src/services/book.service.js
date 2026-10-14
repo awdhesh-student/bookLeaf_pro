@@ -66,7 +66,7 @@ const getBookById = async (bookId) => {
   const book = await Book.findOne({ bookId }).lean()
 
   if (!book) {
-    throw new AppError('Book not found.', {
+    throw AppError('Book not found.', {
       statusCode: 404,
       code: 'BOOK_NOT_FOUND',
     })

@@ -161,7 +161,7 @@ const bulkUpdateTickets = async (ticketIds, updates) => {
   const invalidKeys = updateKeys.filter(key => !allowedUpdates.includes(key))
   
   if (invalidKeys.length > 0) {
-    throw new AppError(`Invalid fields for bulk update: ${invalidKeys.join(', ')}`, {
+    throw AppError(`Invalid fields for bulk update: ${invalidKeys.join(', ')}`, {
       statusCode: 400,
       code: 'INVALID_UPDATE_FIELDS',
     })

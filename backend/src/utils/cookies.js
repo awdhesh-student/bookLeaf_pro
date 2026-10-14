@@ -1,24 +1,24 @@
-const env = require('../config/env')
+const config = require('../config/config')
 const { parseDurationToMs } = require('./jwt')
 
 const cookieOptions = () => {
-  const isProduction = env.NODE_ENV === 'production'
+  const isProduction = config.NODE_ENV === 'production'
 
   return {
     httpOnly: true,
     secure: isProduction,
     sameSite: isProduction ? 'none' : 'lax',
-    maxAge: parseDurationToMs(env.JWT_EXPIRES_IN),
+    maxAge: parseDurationToMs(config.JWT_EXPIRES_IN),
     path: '/',
   }
 }
 
 const setAuthCookie = (res, token) => {
-  res.cookie(env.COOKIE_NAME, token, cookieOptions())
+  res.cookie(config.COOKIE_NAME, token, cookieOptions())
 }
 
 const clearAuthCookie = (res) => {
-  res.clearCookie(env.COOKIE_NAME, {
+  res.clearCookie(config.COOKIE_NAME, {
     ...cookieOptions(),
     maxAge: 0,
   })

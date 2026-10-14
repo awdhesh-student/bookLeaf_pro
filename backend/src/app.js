@@ -1,7 +1,7 @@
 const express = require('express')
 const cors = require('cors')
 const cookieParser = require('cookie-parser')
-const env = require('./config/env')
+const config = require('./config/config')
 require('./models')
 const apiRouter = require('./routes')
 const notFound = require('./middleware/notFound')
@@ -13,7 +13,7 @@ const createApp = () => {
   // CORS configuration for cookies
   app.use(
     cors({
-      origin: env.CLIENT_URL,
+      origin: config.CLIENT_URL,
       credentials: true,
       methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type'],
@@ -28,6 +28,15 @@ const createApp = () => {
     res.status(200).json({
       success: true,
       data: { status: 'ok' },
+    })
+  })
+
+  // AI status endpoint
+  app.get('/ai/status', (req, res) => {
+    const aiService = require('./services/ai.service').getInstance()
+    res.status(200).json({
+      success: true,
+      data: aiService.getStatus(),
     })
   })
 

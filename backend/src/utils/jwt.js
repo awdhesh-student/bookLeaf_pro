@@ -1,16 +1,16 @@
 const jwt = require('jsonwebtoken')
-const env = require('../config/env')
+const config = require('../config/config')
 const AppError = require('./AppError')
 
 const signAccessToken = (payload) => {
-  return jwt.sign(payload, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN })
+  return jwt.sign(payload, config.JWT_SECRET, { expiresIn: config.JWT_EXPIRES_IN })
 }
 
 const verifyAccessToken = (token) => {
   try {
-    return jwt.verify(token, env.JWT_SECRET)
+    return jwt.verify(token, config.JWT_SECRET)
   } catch {
-    throw new AppError('Authentication required.', {
+    throw AppError('Authentication required.', {
       statusCode: 401,
       code: 'UNAUTHENTICATED',
     })

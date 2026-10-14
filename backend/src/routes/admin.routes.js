@@ -28,5 +28,7 @@ router.patch('/tickets/:id', validate(updateTicketSchema), adminController.updat
 router.post('/tickets/:id/assign-self', adminController.assignToSelf)
 router.post('/tickets/:id/messages', validate(addMessageSchema), adminController.addMessage)
 router.post('/tickets/:id/ai-draft', adminController.generateAIDraft)
+router.post('/tickets/:id/ai-classify', adminController.classifyTicketWithAI)
 
 module.exports = router
+

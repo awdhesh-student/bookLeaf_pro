@@ -1,4 +1,4 @@
-const env = require('../config/env')
+const config = require('../config/config')
 
 const errorHandler = (err, req, res, next) => {
   if (res.headersSent) {
@@ -41,7 +41,7 @@ const errorHandler = (err, req, res, next) => {
     message = 'Authentication required.'
   }
 
-  if (statusCode >= 500 && env.NODE_ENV !== 'test') {
+  if (statusCode >= 500 && config.NODE_ENV !== 'test') {
     console.error(err)
   }
 

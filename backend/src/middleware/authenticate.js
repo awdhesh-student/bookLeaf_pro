@@ -1,14 +1,14 @@
-const env = require('../config/env')
+const config = require('../config/config')
 const User = require('../models/User')
 const AppError = require('../utils/AppError')
 const asyncHandler = require('../utils/asyncHandler')
 const { verifyAccessToken } = require('../utils/jwt')
 
 const authenticate = asyncHandler(async (req, res, next) => {
-  const token = req.cookies?.[env.COOKIE_NAME]
+  const token = req.cookies?.[config.COOKIE_NAME]
 
   if (!token) {
-    throw new AppError('Authentication required.', {
+    throw AppError('Authentication required.', {
       statusCode: 401,
       code: 'UNAUTHENTICATED',
     })
@@ -18,7 +18,7 @@ const authenticate = asyncHandler(async (req, res, next) => {
   const user = await User.findById(payload.sub)
 
   if (!user || !user.isActive) {
-    throw new AppError('Authentication required.', {
+    throw AppError('Authentication required.', {
       statusCode: 401,
       code: 'UNAUTHENTICATED',
     })
