@@ -1,20 +1,15 @@
 # PRD Documentation
 prd_docs/
-KIRO_ref.txt
-DAY1_COMPLETED_FEATURES.md
-DAY2_COMPLETED_FEATURES.md
-DAY3_COMPLETED_FEATURES.md
-DAY4_COMPLETED_FEATURES.md
-DAY5_FILE_UPLOAD_FEATURE.md
-GEMINI_SETUP.md
-AI_fun.txt
+DEPLOYMENT_GUIDE.md
+AI_FUN.txt
 # Dependencies
 node_modules/
 
 # Environment
 .env
-.env.example
 .env.local
+.env.production
+.env.*.local
 
 # Build outputs
 dist/
