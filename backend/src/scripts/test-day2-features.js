@@ -9,10 +9,7 @@
  */
 
 const mongoose = require('mongoose')
-const dotenv = require('dotenv')
 const Ticket = require('../models/Ticket')
-
-dotenv.config()
 
 const COLORS = {
   reset: '\x1b[0m',
