@@ -28,6 +28,19 @@ const createApp = () => {
   // Serve uploaded files statically
   app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
 
+  // Root endpoint
+  app.get('/', (req, res) => {
+    res.status(200).json({
+      success: true,
+      message: 'BookLeaf Author Support Portal API',
+      version: '1.0.0',
+      endpoints: {
+        health: '/health',
+        api: '/api/v1',
+      },
+    })
+  })
+
   app.get('/health', (req, res) => {
     res.status(200).json({
       success: true,
