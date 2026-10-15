@@ -3,12 +3,10 @@
  * All variables are defined in .env, this just loads them
  */
 
-const path = require('path')
-const dotenv = require('dotenv')
 const crypto = require('crypto')
 
-// Load .env file
-dotenv.config({ path: path.join(__dirname, '../../.env') })
+// Note: On Vercel, environment variables are injected automatically
+// No need to load .env file - use process.env directly
 
 /**
  * Generate a random password for seeding (if not provided)
