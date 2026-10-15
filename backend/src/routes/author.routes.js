@@ -3,7 +3,7 @@ const authenticate = require('../middleware/authenticate')
 const authorize = require('../middleware/authorize')
 const validate = require('../middleware/validate')
 const authorController = require('../controllers/author.controller')
-const { createTicketSchema } = require('../validators/author.validator')
+const { createTicketSchema, addPublicReplySchema } = require('../validators/author.validator')
 
 const router = express.Router()
 
@@ -31,5 +31,6 @@ router.post('/tickets', validate(createTicketSchema), authorController.createTic
 
 // Ticket detail
 router.get('/tickets/:id', authorController.getTicketDetail)
+router.post('/tickets/:id/reply', validate(addPublicReplySchema), authorController.addPublicReply)
 
 module.exports = router

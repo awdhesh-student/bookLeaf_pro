@@ -266,12 +266,62 @@ const exportTicketsJSON = asyncHandler(async (req, res) => {
   res.status(200).json(data)
 })
 
+// POST /api/v1/author/tickets/:id/reply
+const addPublicReply = asyncHandler(async (req, res) => {
+  const authorId = req.user.authorId
+  const { id } = req.params
+  const { body } = req.validated.body
+
+  const ticket = await Ticket.findById(id).lean()
+
+  if (!ticket) {
+    throw AppError('Ticket not found.', {
+      statusCode: 404,
+      code: 'TICKET_NOT_FOUND',
+    })
+  }
+
+  if (ticket.authorId !== authorId) {
+    throw AppError('You do not have access to this ticket.', {
+      statusCode: 403,
+      code: 'FORBIDDEN',
+    })
+  }
+
+  const message = new TicketMessage({
+    ticketId: ticket._id,
+    senderId: req.user._id,
+    senderRole: 'author',
+    type: 'public_reply',
+    body,
+  })
+
+  await message.save()
+
+  // Fetch all public messages
+  const messages = await TicketMessage.find({
+    ticketId: ticket._id,
+    type: 'public_reply',
+  })
+    .sort({ createdAt: 1 })
+    .lean()
+
+  res.status(201).json({
+    success: true,
+    data: {
+      message: message.toObject(),
+      allMessages: messages,
+    },
+  })
+})
+
 module.exports = {
   getDashboard,
   getBooks,
   getTickets,
   createTicket,
   getTicketDetail,
+  addPublicReply,
   searchTickets,
   getBookStats,
   exportBooksCSV,

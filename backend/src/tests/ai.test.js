@@ -158,9 +158,9 @@ try {
 // Test 7: Error Handling
 console.log('\nTest 7: Error Handling')
 try {
-  const { AIError } = require('../services/ai.service')
+  const { createAIError } = require('../services/ai.service')
 
-  const error = new AIError('Test error', 'TEST_CODE')
+  const error = createAIError('Test error', 'TEST_CODE')
   console.log('✓ AIError created')
   console.log('  - Message:', error.message)
   console.log('  - Code:', error.code)

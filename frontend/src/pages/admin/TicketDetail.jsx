@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
   Card,
   Descriptions,
@@ -24,6 +24,7 @@ import {
 } from '@ant-design/icons'
 import { useParams, useNavigate } from 'react-router-dom'
 import { adminAPI } from '../../services/api'
+import socketService from '../../services/socket'
 import './TicketDetail.css'
 
 const STATUS_COLORS = {
@@ -61,10 +62,76 @@ export default function AdminTicketDetail() {
   const [updating, setUpdating] = useState(false)
   const [generatingDraft, setGeneratingDraft] = useState(false)
   const [messageLoading, setMessageLoading] = useState(false)
+  const [socketConnected, setSocketConnected] = useState(false)
+  const socketRef = useRef(null)
 
   useEffect(() => {
     fetchTicket()
+    // Initialize Socket.IO
+    initializeSocket()
+    
+    return () => {
+      // Leave ticket room on unmount
+      if (socketRef.current) {
+        socketRef.current.leaveTicket(id)
+      }
+    }
   }, [id])
+
+  const initializeSocket = async () => {
+    try {
+      const user = JSON.parse(localStorage.getItem('bookleaf_user'))
+      const socket = socketService.connect(user)
+      
+      if (!socket) {
+        console.warn('Socket connection unavailable - real-time features disabled')
+        return
+      }
+
+      socketRef.current = socket
+      setSocketConnected(true)
+
+      // Join ticket room
+      socket.joinTicket(
+        id,
+        () => {
+          console.log('Joined ticket room:', id)
+        },
+        (error) => {
+          console.error('Failed to join ticket room:', error)
+        }
+      )
+
+      // Listen for new messages
+      socket.onMessageCreated((data) => {
+        console.log('New message received:', data)
+        setTicket((prev) => ({
+          ...prev,
+          messages: [...(prev.messages || []), data.message],
+        }))
+      })
+
+      // Listen for ticket updates
+      socket.onTicketUpdated((data) => {
+        console.log('Ticket updated:', data)
+        setTicket((prev) => ({
+          ...prev,
+          status: data.status,
+        }))
+      })
+
+      // Listen for AI draft ready
+      socket.onAIDraftReady((data) => {
+        console.log('AI draft ready:', data)
+        setTicket((prev) => ({
+          ...prev,
+          aiDraft: data.draft,
+        }))
+      })
+    } catch (err) {
+      console.error('Socket initialization error:', err)
+    }
+  }
 
   const fetchTicket = async () => {
     try {
@@ -135,8 +202,14 @@ export default function AdminTicketDetail() {
   const handleGenerateDraft = async () => {
     try {
       setGeneratingDraft(true)
-      await adminAPI.generateAIDraft(id)
+      const result = await adminAPI.generateAIDraft(id)
       message.success('AI draft generated')
+      
+      // Broadcast via Socket.IO
+      if (socketRef.current && result.aiDraft) {
+        socketRef.current.broadcastAIDraftGenerated(id, result.aiDraft)
+      }
+      
       fetchTicket()
     } catch (err) {
       message.error(err.message)
@@ -148,10 +221,18 @@ export default function AdminTicketDetail() {
   const handleAddMessage = async (values) => {
     try {
       setMessageLoading(true)
+      
+      // Send via REST API first
       await adminAPI.addMessage(id, {
         body: values.message,
         type: values.type,
       })
+      
+      // If it's a public reply, also broadcast via Socket.IO
+      if (values.type === 'public_reply' && socketRef.current) {
+        socketRef.current.sendMessage(id, values.message)
+      }
+      
       message.success('Message added successfully')
       form.resetFields()
       fetchTicket()

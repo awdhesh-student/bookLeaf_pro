@@ -115,6 +115,7 @@ export const authorAPI = {
   },
   createTicket: (data) => apiClient.post('/author/tickets', data),
   getTicketDetail: (ticketId) => apiClient.get(`/author/tickets/${ticketId}`),
+  addPublicReply: (ticketId, data) => apiClient.post(`/author/tickets/${ticketId}/reply`, data),
 }
 
 // Admin endpoints

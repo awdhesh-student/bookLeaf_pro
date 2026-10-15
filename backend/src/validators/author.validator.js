@@ -19,6 +19,16 @@ const createTicketSchema = z.object({
   }),
 })
 
+const addPublicReplySchema = z.object({
+  body: z.object({
+    body: z
+      .string()
+      .min(5, 'Reply must be at least 5 characters')
+      .max(2000, 'Reply must be at most 2000 characters'),
+  }),
+})
+
 module.exports = {
   createTicketSchema,
+  addPublicReplySchema,
 }

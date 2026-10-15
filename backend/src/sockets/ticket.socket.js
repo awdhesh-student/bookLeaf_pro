@@ -78,24 +78,24 @@ function setupTicketSocket(io) {
           return socket.emit('error', { message: 'Ticket not found' })
         }
 
-        // Authorization: only admin can send messages
-        if (socket.userRole !== 'admin') {
-          return socket.emit('error', { message: 'Only admins can send messages' })
+        // Authorization: admin can send, and author can send to their own ticket
+        if (socket.userRole === 'author' && ticket.authorId !== socket.authorId) {
+          return socket.emit('error', { message: 'You do not have access to this ticket' })
         }
 
         // Create message
         const message = new TicketMessage({
           ticketId: ticket._id,
           senderId: socket.userId,
-          senderRole: 'admin',
+          senderRole: socket.userRole,
           type: MESSAGE_TYPES.PUBLIC_REPLY,
           body,
         })
 
         await message.save()
 
-        // Update ticket status to "In Progress" if it was "Open"
-        if (ticket.status === 'Open') {
+        // Update ticket status to "In Progress" if it was "Open" and admin sent message
+        if (ticket.status === 'Open' && socket.userRole === 'admin') {
           ticket.status = 'In Progress'
           await ticket.save()
         }
@@ -106,11 +106,13 @@ function setupTicketSocket(io) {
           message: message.toObject(),
         })
 
-        // Emit ticket updated event
-        io.to(`ticket:${ticketId}`).emit('ticket:updated', {
-          ticketId: ticketId.toString(),
-          status: ticket.status,
-        })
+        // Emit ticket updated event if status changed
+        if (ticket.status === 'In Progress' && socket.userRole === 'admin') {
+          io.to(`ticket:${ticketId}`).emit('ticket:updated', {
+            ticketId: ticketId.toString(),
+            status: ticket.status,
+          })
+        }
       } catch (error) {
         console.error('[Socket] Error sending message:', error)
         socket.emit('error', { message: 'Failed to send message' })
