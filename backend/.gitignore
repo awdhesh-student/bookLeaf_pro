@@ -1,9 +1,8 @@
 node_modules/
 .env
-.env.example
+.env.local
+.env.production
 coverage/
 dist/
 prd_docs/
-DAY4_COMPLETE.txt
-DAY4_IMPLEMENTATION_SUMMARY.txt
 uploads/
