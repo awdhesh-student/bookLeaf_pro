@@ -25,8 +25,10 @@ const createApp = () => {
   app.use(express.json({ limit: '1mb' }))
   app.use(cookieParser())
 
-  // Serve uploaded files statically
-  app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
+  // Note: Vercel has ephemeral filesystem - files deleted after each request
+  // For production file uploads, use S3, Cloudinary, or similar
+  // Commented out for Vercel compatibility
+  // app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
 
   // Root endpoint
   app.get('/', (req, res) => {

@@ -3,10 +3,12 @@ const path = require('path')
 const fs = require('fs')
 const AppError = require('../utils/AppError')
 
-// Ensure uploads directory exists
+// Ensure uploads directory exists (only in non-production environments)
 const uploadDir = path.join(__dirname, '../../uploads')
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true })
+if (process.env.NODE_ENV !== 'production') {
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true })
+  }
 }
 
 // Configure storage
