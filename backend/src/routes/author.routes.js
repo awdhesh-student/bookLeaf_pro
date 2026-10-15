@@ -4,6 +4,7 @@ const authorize = require('../middleware/authorize')
 const validate = require('../middleware/validate')
 const authorController = require('../controllers/author.controller')
 const { createTicketSchema, addPublicReplySchema } = require('../validators/author.validator')
+const { upload, handleUploadError } = require('../middleware/upload')
 
 const router = express.Router()
 
@@ -32,5 +33,11 @@ router.post('/tickets', validate(createTicketSchema), authorController.createTic
 // Ticket detail
 router.get('/tickets/:id', authorController.getTicketDetail)
 router.post('/tickets/:id/reply', validate(addPublicReplySchema), authorController.addPublicReply)
+router.post(
+  '/tickets/:id/reply-with-attachment',
+  upload.array('attachments', 5),
+  handleUploadError,
+  authorController.addPublicReplyWithAttachment
+)
 
 module.exports = router

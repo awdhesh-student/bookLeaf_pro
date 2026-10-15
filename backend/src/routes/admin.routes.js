@@ -4,6 +4,7 @@ const authorize = require('../middleware/authorize')
 const validate = require('../middleware/validate')
 const adminController = require('../controllers/admin.controller')
 const { updateTicketSchema, addMessageSchema, bulkUpdateTicketsSchema } = require('../validators/admin.validator')
+const { upload, handleUploadError } = require('../middleware/upload')
 
 const router = express.Router()
 
@@ -27,6 +28,13 @@ router.get('/tickets/:id', adminController.getTicketDetail)
 router.patch('/tickets/:id', validate(updateTicketSchema), adminController.updateTicket)
 router.post('/tickets/:id/assign-self', adminController.assignToSelf)
 router.post('/tickets/:id/messages', validate(addMessageSchema), adminController.addMessage)
+router.post(
+  '/tickets/:id/messages/with-attachment',
+  upload.array('attachments', 5),
+  handleUploadError,
+  adminController.addMessageWithAttachment
+)
+router.get('/tickets/:ticketId/files/:messageId/:fileName', adminController.downloadFile)
 router.post('/tickets/:id/ai-draft', adminController.generateAIDraft)
 router.post('/tickets/:id/ai-classify', adminController.classifyTicketWithAI)
 

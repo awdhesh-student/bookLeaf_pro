@@ -1,6 +1,7 @@
 const express = require('express')
 const cors = require('cors')
 const cookieParser = require('cookie-parser')
+const path = require('path')
 const config = require('./config/config')
 require('./models')
 const apiRouter = require('./routes')
@@ -23,6 +24,9 @@ const createApp = () => {
   
   app.use(express.json({ limit: '1mb' }))
   app.use(cookieParser())
+
+  // Serve uploaded files statically
+  app.use('/uploads', express.static(path.join(__dirname, '../uploads')))
 
   app.get('/health', (req, res) => {
     res.status(200).json({

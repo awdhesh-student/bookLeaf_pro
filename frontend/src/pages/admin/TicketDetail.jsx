@@ -25,6 +25,8 @@ import {
 import { useParams, useNavigate } from 'react-router-dom'
 import { adminAPI } from '../../services/api'
 import socketService from '../../services/socket'
+import FileUploader from '../../components/FileUploader'
+import MessageAttachments from '../../components/MessageAttachments'
 import './TicketDetail.css'
 
 const STATUS_COLORS = {
@@ -63,6 +65,7 @@ export default function AdminTicketDetail() {
   const [generatingDraft, setGeneratingDraft] = useState(false)
   const [messageLoading, setMessageLoading] = useState(false)
   const [socketConnected, setSocketConnected] = useState(false)
+  const [selectedFiles, setSelectedFiles] = useState([])
   const socketRef = useRef(null)
 
   useEffect(() => {
@@ -251,41 +254,72 @@ export default function AdminTicketDetail() {
   const handleAddMessage = async (values) => {
     try {
       setMessageLoading(true)
-      let messageSent = false
 
-      // Try to send via Socket.IO first (requires active connection)
-      if (socketRef.current && socketRef.current.connected) {
-        // Call raw socket.emit
-        socketRef.current.emit('message:send', { ticketId: id, body: values.message })
-        messageSent = true
+      // If we have selected files, use FormData for multipart upload
+      if (selectedFiles.length > 0) {
+        const formData = new FormData()
+        formData.append('body', values.message)
+        formData.append('type', values.type)
 
-        // If Socket fails, we'll get an error event and fall back to REST API
-        // For now, assume Socket.IO delivery is async and we'll handle via setTicket listener
-      } else {
-        // Fallback to REST API if Socket.IO not connected or not available
-        const result = await adminAPI.addMessage(id, {
-          body: values.message,
-          type: values.type,
+        // Add all selected files
+        selectedFiles.forEach((file) => {
+          formData.append('attachments', file)
         })
 
-        // REST API returns the updated ticket - update state directly
-        if (result && result.messages) {
-          setTicket(result)
+        // Call the upload endpoint
+        const response = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/admin/tickets/${id}/messages/with-attachment`,
+          {
+            method: 'POST',
+            credentials: 'include', // Include cookies for authentication
+            body: formData,
+            // Don't set Content-Type - browser will set it automatically with boundary
+          }
+        )
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error?.message || 'Failed to send message with attachments')
+        }
+
+        const result = await response.json()
+        setTicket(result.data)
+        message.success(`Message with ${selectedFiles.length} file(s) sent successfully`)
+        form.resetFields()
+        setSelectedFiles([])
+      } else {
+        // Original flow for messages without attachments
+        let messageSent = false
+
+        // Try to send via Socket.IO first (requires active connection)
+        if (socketRef.current && socketRef.current.connected) {
+          // Call raw socket.emit
+          socketRef.current.emit('message:send', { ticketId: id, body: values.message })
           messageSent = true
         } else {
-          // Fallback: fetch full ticket
-          fetchTicket()
-          messageSent = true
+          // Fallback to REST API if Socket.IO not connected or not available
+          const result = await adminAPI.addMessage(id, {
+            body: values.message,
+            type: values.type,
+          })
+
+          // REST API returns the updated ticket - update state directly
+          if (result && result.messages) {
+            setTicket(result)
+            messageSent = true
+          } else {
+            // Fallback: fetch full ticket
+            fetchTicket()
+            messageSent = true
+          }
+        }
+
+        if (messageSent) {
+          message.success('Message added successfully')
+          form.resetFields()
         }
       }
-
-      if (messageSent) {
-        message.success('Message added successfully')
-        form.resetFields()
-      }
-
     } catch (err) {
-      console.error('📤 [AdminTicketDetail] ❌ ===== HANDLE ADD MESSAGE ERROR =====')
       console.error('📤 [AdminTicketDetail] Error:', err.message)
       message.error(err.message)
     } finally {
@@ -498,6 +532,14 @@ export default function AdminTicketDetail() {
                     </span>
                   </div>
                   <div className="message-body">{msg.body}</div>
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <MessageAttachments
+                      attachments={msg.attachments}
+                      ticketId={ticket._id}
+                      messageId={msg._id}
+                      senderRole={msg.senderRole}
+                    />
+                  )}
                 </div>
               ),
             }))}
@@ -532,9 +574,25 @@ export default function AdminTicketDetail() {
             <Input.TextArea rows={4} placeholder="Type your message..." />
           </Form.Item>
 
+          <Form.Item label="Attachments (Optional)">
+            <FileUploader 
+              onFilesSelected={setSelectedFiles}
+              maxFiles={5}
+              maxFileSize={10}
+            />
+          </Form.Item>
+
           <Form.Item>
-            <Button type="primary" htmlType="submit" loading={messageLoading} icon={<SendOutlined />}>
-              Send Message
+            <Button 
+              type="primary" 
+              htmlType="submit" 
+              loading={messageLoading} 
+              icon={<SendOutlined />}
+            >
+              {selectedFiles.length > 0 
+                ? `Send Message (${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''})`
+                : 'Send Message'
+              }
             </Button>
           </Form.Item>
         </Form>

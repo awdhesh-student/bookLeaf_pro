@@ -4,6 +4,8 @@ import { ArrowLeftOutlined, ReloadOutlined, SendOutlined } from '@ant-design/ico
 import { useParams, useNavigate } from 'react-router-dom'
 import { authorAPI } from '../../services/api'
 import socketService from '../../services/socket'
+import FileUploader from '../../components/FileUploader'
+import MessageAttachments from '../../components/MessageAttachments'
 import './TicketDetail.css'
 
 const STATUS_COLORS = {
@@ -29,6 +31,7 @@ export default function AuthorTicketDetail() {
   const [error, setError] = useState(null)
   const [messageLoading, setMessageLoading] = useState(false)
   const [socketConnected, setSocketConnected] = useState(false)
+  const [selectedFiles, setSelectedFiles] = useState([])
   const socketRef = useRef(null)
 
   useEffect(() => {
@@ -140,56 +143,70 @@ export default function AuthorTicketDetail() {
 
   const handleAddReply = async (values) => {
     try {
-      console.log('📤 [AuthorTicketDetail] ===== HANDLE ADD REPLY START =====')
-      console.log('📤 [AuthorTicketDetail] 1. Reply:', values)
-      console.log('📤 [AuthorTicketDetail] 2. socketRef.current exists:', !!socketRef.current)
-      
       setMessageLoading(true)
-      let replySent = false
-      
-      // Try to send via Socket.IO first (requires active connection)
-      if (socketRef.current && socketRef.current.connected) {
-        console.log('📤 [AuthorTicketDetail] 3. ✅ Socket CONNECTED - Using Socket.IO')
-        console.log('📤 [AuthorTicketDetail] 4. socket.id:', socketRef.current.id)
-        
-        // Call raw socket.emit
-        socketRef.current.emit('message:send', { ticketId: id, body: values.reply })
-        console.log('📤 [AuthorTicketDetail] 5. ✅ Reply emitted via Socket.IO')
-        replySent = true
-        
-        // If Socket fails, we'll get an error event and fall back to REST API
-        // For now, assume Socket.IO delivery is async and we'll handle via setTicket listener
-      } else {
-        console.log('📤 [AuthorTicketDetail] ❌ Socket NOT connected (connected: ' + (socketRef.current?.connected || 'N/A') + '), using REST API')
-        
-        // Fallback to REST API if Socket.IO not connected or not available
-        const result = await authorAPI.addPublicReply(id, {
-          body: values.reply,
+
+      // If we have selected files, use FormData for multipart upload
+      if (selectedFiles.length > 0) {
+        const formData = new FormData()
+        formData.append('body', values.reply)
+        formData.append('type', 'public_reply')
+
+        // Add all selected files
+        selectedFiles.forEach((file) => {
+          formData.append('attachments', file)
         })
-        console.log('📤 [AuthorTicketDetail] ✅ Reply sent via REST API')
-        
-        // REST API now returns full ticket object with messages - update state directly
-        if (result && result.messages) {
-          console.log('📤 [AuthorTicketDetail] ✅ Updating state with full ticket from REST response')
-          setTicket(result)
+
+        // Call the upload endpoint
+        const response = await fetch(
+          `${import.meta.env.VITE_API_BASE_URL}/author/tickets/${id}/reply-with-attachment`,
+          {
+            method: 'POST',
+            credentials: 'include',
+            body: formData,
+          }
+        )
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error?.message || 'Failed to send reply with attachments')
+        }
+
+        const result = await response.json()
+        setTicket(result.data)
+        message.success(`Reply with ${selectedFiles.length} file(s) sent successfully`)
+        form.resetFields()
+        setSelectedFiles([])
+      } else {
+        // Original flow for replies without attachments
+        let replySent = false
+
+        // Try to send via Socket.IO first (requires active connection)
+        if (socketRef.current && socketRef.current.connected) {
+          socketRef.current.emit('message:send', { ticketId: id, body: values.reply })
           replySent = true
         } else {
-          // Fallback: fetch full ticket
-          console.log('📤 [AuthorTicketDetail] ⚠️ No messages in response, fetching full ticket')
-          fetchTicket()
-          replySent = true
+          // Fallback to REST API if Socket.IO not connected or not available
+          const result = await authorAPI.addPublicReply(id, {
+            body: values.reply,
+          })
+
+          // REST API now returns full ticket object with messages - update state directly
+          if (result && result.messages) {
+            setTicket(result)
+            replySent = true
+          } else {
+            fetchTicket()
+            replySent = true
+          }
+        }
+
+        if (replySent) {
+          message.success('Reply sent successfully')
+          form.resetFields()
         }
       }
-      
-      if (replySent) {
-        message.success('Reply sent successfully')
-        form.resetFields()
-      }
-      
-      console.log('📤 [AuthorTicketDetail] ===== HANDLE ADD REPLY SUCCESS =====')
     } catch (err) {
-      console.error('📤 [AuthorTicketDetail] ❌ ===== HANDLE ADD REPLY ERROR =====')
-      console.error('📤 [AuthorTicketDetail] Error:', err.message)
+      console.error('Error:', err.message)
       message.error(err.message)
     } finally {
       setMessageLoading(false)
@@ -321,6 +338,14 @@ export default function AuthorTicketDetail() {
                     </span>
                   </div>
                   <div className="message-body">{msg.body}</div>
+                  {msg.attachments && msg.attachments.length > 0 && (
+                    <MessageAttachments
+                      attachments={msg.attachments}
+                      ticketId={ticket._id}
+                      messageId={msg._id}
+                      senderRole={msg.senderRole}
+                    />
+                  )}
                 </div>
               ),
             }))}
@@ -350,6 +375,15 @@ export default function AuthorTicketDetail() {
               disabled={messageLoading}
             />
           </Form.Item>
+
+          <Form.Item label="Attachments (Optional)">
+            <FileUploader 
+              onFilesSelected={setSelectedFiles}
+              maxFiles={5}
+              maxFileSize={10}
+            />
+          </Form.Item>
+
           <Form.Item>
             <Button
               type="primary"
@@ -357,7 +391,10 @@ export default function AuthorTicketDetail() {
               loading={messageLoading}
               htmlType="submit"
             >
-              Send Reply
+              {selectedFiles.length > 0 
+                ? `Send Reply (${selectedFiles.length} file${selectedFiles.length !== 1 ? 's' : ''})`
+                : 'Send Reply'
+              }
             </Button>
           </Form.Item>
         </Form>

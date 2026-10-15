@@ -323,6 +323,119 @@ const addPublicReply = asyncHandler(async (req, res) => {
   })
 })
 
+// POST /api/v1/author/tickets/:id/reply-with-attachment
+const addPublicReplyWithAttachment = asyncHandler(async (req, res) => {
+  const authorId = req.user.authorId
+  const { id } = req.params
+  const { body } = req.body
+  const FileService = require('../services/file.service')
+
+  // Validate message body
+  if (!body || body.trim().length === 0) {
+    // Clean up files
+    if (req.files && req.files.length > 0) {
+      const filePaths = req.files.map((f) => `uploads/${f.filename}`)
+      FileService.deleteFiles(filePaths)
+    }
+    throw AppError('Reply body is required.', {
+      statusCode: 400,
+      code: 'EMPTY_REPLY_BODY',
+    })
+  }
+
+  const ticket = await Ticket.findById(id)
+
+  if (!ticket) {
+    // Clean up files
+    if (req.files && req.files.length > 0) {
+      const filePaths = req.files.map((f) => `uploads/${f.filename}`)
+      FileService.deleteFiles(filePaths)
+    }
+    throw AppError('Ticket not found.', {
+      statusCode: 404,
+      code: 'TICKET_NOT_FOUND',
+    })
+  }
+
+  if (ticket.authorId !== authorId) {
+    // Clean up files
+    if (req.files && req.files.length > 0) {
+      const filePaths = req.files.map((f) => `uploads/${f.filename}`)
+      FileService.deleteFiles(filePaths)
+    }
+    throw AppError('You do not have access to this ticket.', {
+      statusCode: 403,
+      code: 'FORBIDDEN',
+    })
+  }
+
+  try {
+    // Extract file metadata
+    const attachments = FileService.extractFileMetadata(req.files)
+
+    // Create message with attachments
+    const message = new TicketMessage({
+      ticketId: ticket._id,
+      senderId: req.user._id,
+      senderRole: 'author',
+      type: 'public_reply',
+      body: body.trim(),
+      attachments,
+    })
+
+    await message.save()
+
+    // Broadcast via Socket.IO if available
+    const io = global.io
+    if (io) {
+      io.to(`ticket:${id}`).emit('message:created', {
+        ticketId: id.toString(),
+        message: {
+          _id: message._id,
+          body: message.body,
+          senderRole: message.senderRole,
+          type: message.type,
+          senderId: message.senderId,
+          attachments: message.attachments,
+          createdAt: message.createdAt,
+          updatedAt: message.updatedAt,
+        },
+      })
+    }
+
+    // Fetch all public messages
+    const messages = await TicketMessage.find({
+      ticketId: ticket._id,
+      type: 'public_reply',
+    })
+      .sort({ createdAt: 1 })
+      .lean()
+
+    // Return full ticket object for consistency
+    let bookTitle = null
+    if (ticket.bookId) {
+      const book = await Book.findOne({ bookId: ticket.bookId }).lean()
+      bookTitle = book?.title || null
+    }
+
+    res.status(201).json({
+      success: true,
+      data: {
+        ...ticket.toObject(),
+        bookTitle,
+        messages,
+      },
+    })
+  } catch (error) {
+    // Clean up files on error
+    if (req.files && req.files.length > 0) {
+      const filePaths = req.files.map((f) => `uploads/${f.filename}`)
+      FileService.deleteFiles(filePaths)
+    }
+    throw error
+  }
+})
+
 module.exports = {
   getDashboard,
   getBooks,
@@ -330,6 +443,7 @@ module.exports = {
   createTicket,
   getTicketDetail,
   addPublicReply,
+  addPublicReplyWithAttachment,
   searchTickets,
   getBookStats,
   exportBooksCSV,

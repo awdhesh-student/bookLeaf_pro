@@ -480,3 +480,188 @@ module.exports = {
   exportTicketsJSON,
   bulkUpdateTickets,
 }
+
+
+// POST /api/v1/admin/tickets/:id/messages/with-attachment
+const addMessageWithAttachment = asyncHandler(async (req, res) => {
+  const { id } = req.params
+  const { body, type } = req.body
+  const adminId = req.user._id
+  const FileService = require('../services/file.service')
+
+  // Validate message body
+  if (!body || body.trim().length === 0) {
+    // Clean up uploaded files if body is empty
+    if (req.files && req.files.length > 0) {
+      const filePaths = req.files.map((f) => `uploads/${f.filename}`)
+      FileService.deleteFiles(filePaths)
+    }
+
+    throw AppError('Message body is required.', {
+      statusCode: 400,
+      code: 'EMPTY_MESSAGE_BODY',
+    })
+  }
+
+  // Validate message type
+  if (!Object.values(MESSAGE_TYPES).includes(type)) {
+    // Clean up files
+    if (req.files && req.files.length > 0) {
+      const filePaths = req.files.map((f) => `uploads/${f.filename}`)
+      FileService.deleteFiles(filePaths)
+    }
+
+    throw AppError('Invalid message type.', {
+      statusCode: 400,
+      code: 'INVALID_MESSAGE_TYPE',
+    })
+  }
+
+  const ticket = await Ticket.findById(id)
+
+  if (!ticket) {
+    // Clean up files
+    if (req.files && req.files.length > 0) {
+      const filePaths = req.files.map((f) => `uploads/${f.filename}`)
+      FileService.deleteFiles(filePaths)
+    }
+
+    throw AppError('Ticket not found.', {
+      statusCode: 404,
+      code: 'TICKET_NOT_FOUND',
+    })
+  }
+
+  try {
+    // Extract file metadata
+    const attachments = FileService.extractFileMetadata(req.files)
+
+    // Create message
+    const message = new TicketMessage({
+      ticketId: ticket._id,
+      senderId: adminId,
+      senderRole: 'admin',
+      type,
+      body: body.trim(),
+      attachments,
+    })
+
+    await message.save()
+
+    // Update ticket status if admin sends first message
+    if (ticket.status === 'Open') {
+      ticket.status = 'In Progress'
+      await ticket.save()
+    }
+
+    // Broadcast via Socket.IO if available
+    const io = global.io
+    if (io) {
+      io.to(`ticket:${id}`).emit('message:created', {
+        ticketId: id.toString(),
+        message: {
+          _id: message._id,
+          body: message.body,
+          senderRole: message.senderRole,
+          type: message.type,
+          senderId: message.senderId,
+          attachments: message.attachments,
+          createdAt: message.createdAt,
+          updatedAt: message.updatedAt,
+        },
+      })
+
+      if (ticket.status === 'In Progress') {
+        io.to(`ticket:${id}`).emit('ticket:updated', {
+          ticketId: id.toString(),
+          status: ticket.status,
+          updatedAt: ticket.updatedAt,
+        })
+      }
+    }
+
+    // Return updated ticket
+    const allMessages = await TicketMessage.find({ ticketId: ticket._id }).sort({ createdAt: 1 }).lean()
+    const authorProfile = await AuthorProfile.findOne({ authorId: ticket.authorId }).lean()
+    const bookDetails = ticket.bookId ? await Book.findOne({ bookId: ticket.bookId }).lean() : null
+
+    res.status(201).json({
+      success: true,
+      data: {
+        ...ticket.toObject(),
+        authorEmail: authorProfile?.email || 'Unknown',
+        bookTitle: bookDetails?.title || null,
+        messages: allMessages,
+      },
+    })
+  } catch (error) {
+    // Clean up files on error
+    if (req.files && req.files.length > 0) {
+      const filePaths = req.files.map((f) => `uploads/${f.filename}`)
+      FileService.deleteFiles(filePaths)
+    }
+    throw error
+  }
+})
+
+// GET /api/v1/admin/tickets/:ticketId/files/:messageId/:fileName
+const downloadFile = asyncHandler(async (req, res) => {
+  const { ticketId, messageId, fileName } = req.params
+  const FileService = require('../services/file.service')
+
+  // Verify ticket exists and user can access it
+  const ticket = await Ticket.findById(ticketId)
+  if (!ticket) {
+    throw AppError('Ticket not found.', {
+      statusCode: 404,
+      code: 'TICKET_NOT_FOUND',
+    })
+  }
+
+  // Verify message exists
+  const message = await TicketMessage.findById(messageId)
+  if (!message || message.ticketId.toString() !== ticketId) {
+    throw AppError('Message not found.', {
+      statusCode: 404,
+      code: 'MESSAGE_NOT_FOUND',
+    })
+  }
+
+  // Find the file in attachments
+  const attachment = message.attachments.find((a) => a.fileName === decodeURIComponent(fileName))
+
+  if (!attachment) {
+    throw AppError('File not found.', {
+      statusCode: 404,
+      code: 'FILE_NOT_FOUND',
+    })
+  }
+
+  // Get file stream
+  const fileStream = FileService.getFileStream(attachment.filePath)
+
+  // Set headers for download
+  res.setHeader('Content-Type', attachment.mimeType)
+  res.setHeader('Content-Disposition', `attachment; filename="${attachment.fileName}"`)
+
+  // Pipe to response
+  fileStream.pipe(res)
+
+  // Handle errors
+  fileStream.on('error', (error) => {
+    console.error('[downloadFile] Stream error:', error)
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: {
+          code: 'FILE_READ_ERROR',
+          message: 'Error reading file',
+        },
+      })
+    }
+  })
+})
+
+// Export the new functions
+module.exports.addMessageWithAttachment = addMessageWithAttachment
+module.exports.downloadFile = downloadFile

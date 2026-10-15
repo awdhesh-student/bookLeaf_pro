@@ -28,6 +28,15 @@ const ticketMessageSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    attachments: [
+      {
+        fileName: String,
+        fileSize: Number, // in bytes
+        mimeType: String,
+        filePath: String, // relative path to storage
+        uploadedAt: { type: Date, default: Date.now },
+      },
+    ],
   },
   { timestamps: true }
 )
