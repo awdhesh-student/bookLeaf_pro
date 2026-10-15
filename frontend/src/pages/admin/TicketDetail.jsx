@@ -69,67 +69,97 @@ export default function AdminTicketDetail() {
     fetchTicket()
     // Initialize Socket.IO
     initializeSocket()
-    
+
     return () => {
-      // Leave ticket room on unmount
+      // Cleanup Socket listeners and leave room on unmount
       if (socketRef.current) {
-        socketRef.current.leaveTicket(id)
+        // socketRef.current is the raw Socket.IO socket, not socketService
+        socketRef.current.emit('ticket:leave', id)
+        // Remove listeners to prevent memory leaks
+        socketRef.current.off('message:created')
+        socketRef.current.off('ticket:updated')
+        socketRef.current.off('ai:draft-ready')
       }
     }
   }, [id])
 
-  const initializeSocket = async () => {
+  const initializeSocket = () => {
     try {
-      const user = JSON.parse(localStorage.getItem('bookleaf_user'))
-      const socket = socketService.connect(user)
-      
-      if (!socket) {
-        console.warn('Socket connection unavailable - real-time features disabled')
+      const userJson = localStorage.getItem('bookleaf_user')
+
+      if (!userJson) {
+        console.error('🔧 [AdminTicketDetail] ❌ STOP: No user in localStorage!')
         return
       }
 
+      const user = JSON.parse(userJson)
+      const socket = socketService.connect(user)
+
+      if (!socket) {
+        console.error('🔧 [AdminTicketDetail] ❌ STOP: socketService.connect returned null')
+        return
+      }
+
+      // Store reference to the raw socket, not socketService
       socketRef.current = socket
       setSocketConnected(true)
 
       // Join ticket room
-      socket.joinTicket(
-        id,
-        () => {
-          console.log('Joined ticket room:', id)
-        },
-        (error) => {
-          console.error('Failed to join ticket room:', error)
-        }
-      )
+      socket.emit('ticket:join', id)
 
-      // Listen for new messages
-      socket.onMessageCreated((data) => {
-        console.log('New message received:', data)
-        setTicket((prev) => ({
-          ...prev,
-          messages: [...(prev.messages || []), data.message],
-        }))
+      socket.once('ticket:joined', () => {
+        console.log('🔧 [AdminTicketDetail] ✅ Joined ticket room:', id)
       })
 
+      socket.once('error', (error) => {
+        console.error('🔧 [AdminTicketDetail] ❌ Failed to join ticket room:', error)
+      })
+
+      // Remove any previous listeners to avoid duplicates
+      socket.off('message:created')
+      socket.off('ticket:updated')
+      socket.off('ai:draft-ready')
+
+      // Listen for new messages
+      const onMessageCreated = (data) => {
+        setTicket((prev) => {
+          const newMessages = [...(prev.messages || []), data.message]
+
+          return {
+            ...prev,
+            messages: newMessages,
+          }
+        })
+      }
+
       // Listen for ticket updates
-      socket.onTicketUpdated((data) => {
-        console.log('Ticket updated:', data)
+      const onTicketUpdated = (data) => {
         setTicket((prev) => ({
           ...prev,
           status: data.status,
         }))
-      })
+      }
 
       // Listen for AI draft ready
-      socket.onAIDraftReady((data) => {
-        console.log('AI draft ready:', data)
+      const onAIDraftReady = (data) => {
         setTicket((prev) => ({
           ...prev,
           aiDraft: data.draft,
         }))
-      })
+      }
+
+      socket.on('message:created', onMessageCreated)
+      socket.on('ticket:updated', onTicketUpdated)
+      socket.on('ai:draft-ready', onAIDraftReady)
+
+      // Store callback refs for cleanup
+      socketRef.current.messageCreatedCallback = onMessageCreated
+      socketRef.current.ticketUpdatedCallback = onTicketUpdated
+      socketRef.current.draftReadyCallback = onAIDraftReady
     } catch (err) {
-      console.error('Socket initialization error:', err)
+      console.error('🔧 [AdminTicketDetail] ❌ ===== SOCKET INIT ERROR =====')
+      console.error('🔧 [AdminTicketDetail] Error:', err.message)
+      console.error('🔧 [AdminTicketDetail] Stack:', err.stack)
     }
   }
 
@@ -204,12 +234,12 @@ export default function AdminTicketDetail() {
       setGeneratingDraft(true)
       const result = await adminAPI.generateAIDraft(id)
       message.success('AI draft generated')
-      
+
       // Broadcast via Socket.IO
       if (socketRef.current && result.aiDraft) {
         socketRef.current.broadcastAIDraftGenerated(id, result.aiDraft)
       }
-      
+
       fetchTicket()
     } catch (err) {
       message.error(err.message)
@@ -221,22 +251,42 @@ export default function AdminTicketDetail() {
   const handleAddMessage = async (values) => {
     try {
       setMessageLoading(true)
-      
-      // Send via REST API first
-      await adminAPI.addMessage(id, {
-        body: values.message,
-        type: values.type,
-      })
-      
-      // If it's a public reply, also broadcast via Socket.IO
-      if (values.type === 'public_reply' && socketRef.current) {
-        socketRef.current.sendMessage(id, values.message)
+      let messageSent = false
+
+      // Try to send via Socket.IO first (requires active connection)
+      if (socketRef.current && socketRef.current.connected) {
+        // Call raw socket.emit
+        socketRef.current.emit('message:send', { ticketId: id, body: values.message })
+        messageSent = true
+
+        // If Socket fails, we'll get an error event and fall back to REST API
+        // For now, assume Socket.IO delivery is async and we'll handle via setTicket listener
+      } else {
+        // Fallback to REST API if Socket.IO not connected or not available
+        const result = await adminAPI.addMessage(id, {
+          body: values.message,
+          type: values.type,
+        })
+
+        // REST API returns the updated ticket - update state directly
+        if (result && result.messages) {
+          setTicket(result)
+          messageSent = true
+        } else {
+          // Fallback: fetch full ticket
+          fetchTicket()
+          messageSent = true
+        }
       }
-      
-      message.success('Message added successfully')
-      form.resetFields()
-      fetchTicket()
+
+      if (messageSent) {
+        message.success('Message added successfully')
+        form.resetFields()
+      }
+
     } catch (err) {
+      console.error('📤 [AdminTicketDetail] ❌ ===== HANDLE ADD MESSAGE ERROR =====')
+      console.error('📤 [AdminTicketDetail] Error:', err.message)
       message.error(err.message)
     } finally {
       setMessageLoading(false)

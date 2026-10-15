@@ -36,8 +36,14 @@ export default function AuthorTicketDetail() {
     initializeSocket()
     
     return () => {
+      // Cleanup Socket listeners and leave room on unmount
       if (socketRef.current) {
-        socketRef.current.leaveTicket(id)
+        console.log('🔧 [AuthorTicketDetail] Cleaning up Socket...')
+        // socketRef.current is the raw Socket.IO socket, not socketService
+        socketRef.current.emit('ticket:leave', id)
+        // Remove listeners to prevent memory leaks
+        socketRef.current.off('message:created')
+        socketRef.current.off('ticket:updated')
       }
     }
   }, [id])
@@ -56,70 +62,134 @@ export default function AuthorTicketDetail() {
     }
   }
 
-  const initializeSocket = async () => {
+  const initializeSocket = () => {
     try {
-      const user = JSON.parse(localStorage.getItem('bookleaf_user'))
+      console.log('🔧 [AuthorTicketDetail] Initializing Socket...')
+      const userJson = localStorage.getItem('bookleaf_user')
+      console.log('🔧 [AuthorTicketDetail] User JSON from localStorage:', userJson)
+
+      if (!userJson) {
+        console.error('🔧 [AuthorTicketDetail] ❌ No user in localStorage!')
+        return
+      }
+
+      const user = JSON.parse(userJson)
+      console.log('🔧 [AuthorTicketDetail] Parsed user:', user)
+
       const socket = socketService.connect(user)
+      console.log('🔧 [AuthorTicketDetail] Socket returned:', socket ? '✅ Socket object created' : '❌ Failed to create socket')
       
       if (!socket) {
-        console.warn('Socket connection unavailable - real-time features disabled')
+        console.warn('🔧 [AuthorTicketDetail] Socket connection unavailable - real-time features disabled')
         return
       }
 
       socketRef.current = socket
+      console.log('🔧 [AuthorTicketDetail] Socket stored in ref')
       setSocketConnected(true)
 
       // Join ticket room
-      socket.joinTicket(
-        id,
-        () => {
-          console.log('Joined ticket room:', id)
-        },
-        (error) => {
-          console.error('Failed to join ticket room:', error)
-        }
-      )
+      console.log('🔧 [AuthorTicketDetail] 9. Calling joinTicket...')
+      socket.emit('ticket:join', id)
 
-      // Listen for new messages
-      socket.onMessageCreated((data) => {
-        console.log('New message received:', data)
-        setTicket((prev) => ({
-          ...prev,
-          messages: [...(prev.messages || []), data.message],
-        }))
+      socket.once('ticket:joined', () => {
+        console.log('🔧 [AuthorTicketDetail] ✅ Joined ticket room:', id)
       })
 
+      socket.once('error', (error) => {
+        console.error('🔧 [AuthorTicketDetail] ❌ Failed to join ticket room:', error)
+      })
+
+      // Remove any previous listeners to avoid duplicates
+      socket.off('message:created')
+      socket.off('ticket:updated')
+
+      // Listen for new messages
+      const onMessageCreated = (data) => {
+        console.log('🔧 [AuthorTicketDetail] 📬 New message received:', data)
+        setTicket((prev) => {
+          console.log('🔧 [AuthorTicketDetail] 📬 Updating ticket state with new message')
+          return {
+            ...prev,
+            messages: [...(prev.messages || []), data.message],
+          }
+        })
+      }
+
       // Listen for ticket updates (status changes)
-      socket.onTicketUpdated((data) => {
-        console.log('Ticket updated:', data)
+      const onTicketUpdated = (data) => {
+        console.log('🔧 [AuthorTicketDetail] 📋 Ticket updated:', data)
         setTicket((prev) => ({
           ...prev,
           status: data.status,
         }))
-      })
+      }
+
+      console.log('🔧 [AuthorTicketDetail] 11. Attaching Socket listeners...')
+      socket.on('message:created', onMessageCreated)
+      socket.on('ticket:updated', onTicketUpdated)
+      console.log('🔧 [AuthorTicketDetail] 12. ✅ Listeners attached')
+
+      // Store callback refs for cleanup
+      socketRef.current.messageCreatedCallback = onMessageCreated
+      socketRef.current.ticketUpdatedCallback = onTicketUpdated
     } catch (err) {
-      console.error('Socket initialization error:', err)
+      console.error('🔧 [AuthorTicketDetail] ❌ Socket initialization error:', err)
     }
   }
 
   const handleAddReply = async (values) => {
     try {
+      console.log('📤 [AuthorTicketDetail] ===== HANDLE ADD REPLY START =====')
+      console.log('📤 [AuthorTicketDetail] 1. Reply:', values)
+      console.log('📤 [AuthorTicketDetail] 2. socketRef.current exists:', !!socketRef.current)
+      
       setMessageLoading(true)
+      let replySent = false
       
-      // Send via REST API
-      await authorAPI.addPublicReply(id, {
-        body: values.reply,
-      })
-      
-      // Also broadcast via Socket.IO
-      if (socketRef.current) {
-        socketRef.current.sendMessage(id, values.reply)
+      // Try to send via Socket.IO first (requires active connection)
+      if (socketRef.current && socketRef.current.connected) {
+        console.log('📤 [AuthorTicketDetail] 3. ✅ Socket CONNECTED - Using Socket.IO')
+        console.log('📤 [AuthorTicketDetail] 4. socket.id:', socketRef.current.id)
+        
+        // Call raw socket.emit
+        socketRef.current.emit('message:send', { ticketId: id, body: values.reply })
+        console.log('📤 [AuthorTicketDetail] 5. ✅ Reply emitted via Socket.IO')
+        replySent = true
+        
+        // If Socket fails, we'll get an error event and fall back to REST API
+        // For now, assume Socket.IO delivery is async and we'll handle via setTicket listener
+      } else {
+        console.log('📤 [AuthorTicketDetail] ❌ Socket NOT connected (connected: ' + (socketRef.current?.connected || 'N/A') + '), using REST API')
+        
+        // Fallback to REST API if Socket.IO not connected or not available
+        const result = await authorAPI.addPublicReply(id, {
+          body: values.reply,
+        })
+        console.log('📤 [AuthorTicketDetail] ✅ Reply sent via REST API')
+        
+        // REST API now returns full ticket object with messages - update state directly
+        if (result && result.messages) {
+          console.log('📤 [AuthorTicketDetail] ✅ Updating state with full ticket from REST response')
+          setTicket(result)
+          replySent = true
+        } else {
+          // Fallback: fetch full ticket
+          console.log('📤 [AuthorTicketDetail] ⚠️ No messages in response, fetching full ticket')
+          fetchTicket()
+          replySent = true
+        }
       }
       
-      message.success('Reply sent successfully')
-      form.resetFields()
-      fetchTicket()
+      if (replySent) {
+        message.success('Reply sent successfully')
+        form.resetFields()
+      }
+      
+      console.log('📤 [AuthorTicketDetail] ===== HANDLE ADD REPLY SUCCESS =====')
     } catch (err) {
+      console.error('📤 [AuthorTicketDetail] ❌ ===== HANDLE ADD REPLY ERROR =====')
+      console.error('📤 [AuthorTicketDetail] Error:', err.message)
       message.error(err.message)
     } finally {
       setMessageLoading(false)

@@ -272,7 +272,7 @@ const addPublicReply = asyncHandler(async (req, res) => {
   const { id } = req.params
   const { body } = req.validated.body
 
-  const ticket = await Ticket.findById(id).lean()
+  const ticket = await Ticket.findById(id)
 
   if (!ticket) {
     throw AppError('Ticket not found.', {
@@ -306,11 +306,19 @@ const addPublicReply = asyncHandler(async (req, res) => {
     .sort({ createdAt: 1 })
     .lean()
 
+  // Return full ticket object for consistency with admin endpoint
+  let bookTitle = null
+  if (ticket.bookId) {
+    const book = await Book.findOne({ bookId: ticket.bookId }).lean()
+    bookTitle = book?.title || null
+  }
+
   res.status(201).json({
     success: true,
     data: {
-      message: message.toObject(),
-      allMessages: messages,
+      ...ticket.toObject(),
+      bookTitle,
+      messages,
     },
   })
 })
