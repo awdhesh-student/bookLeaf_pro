@@ -606,7 +606,7 @@ const addMessageWithAttachment = asyncHandler(async (req, res) => {
 
 // GET /api/v1/admin/tickets/:ticketId/files/:messageId/:fileName
 const downloadFile = asyncHandler(async (req, res) => {
-  const { ticketId, messageId, fileName } = req.params
+  const { id: ticketId, messageId, fileName } = req.params
   const FileService = require('../services/file.service')
 
   // Verify ticket exists and user can access it

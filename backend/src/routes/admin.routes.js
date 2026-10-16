@@ -34,7 +34,7 @@ router.post(
   handleUploadError,
   adminController.addMessageWithAttachment
 )
-router.get('/tickets/:ticketId/files/:messageId/:fileName', adminController.downloadFile)
+router.get('/tickets/:id/files/:messageId/:fileName', adminController.downloadFile)
 router.post('/tickets/:id/ai-draft', adminController.generateAIDraft)
 router.post('/tickets/:id/ai-classify', adminController.classifyTicketWithAI)
 

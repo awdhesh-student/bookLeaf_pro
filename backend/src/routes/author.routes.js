@@ -39,5 +39,6 @@ router.post(
   handleUploadError,
   authorController.addPublicReplyWithAttachment
 )
+router.get('/tickets/:id/files/:messageId/:fileName', authorController.downloadFile)
 
 module.exports = router

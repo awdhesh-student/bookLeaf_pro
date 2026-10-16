@@ -42,7 +42,11 @@ const MessageAttachments = ({ attachments, ticketId, messageId, senderRole }) =>
       setError(null)
 
       const encodedFileName = encodeURIComponent(attachment.fileName)
-      const url = `${import.meta.env.VITE_API_BASE_URL}/admin/tickets/${ticketId}/files/${messageId}/${encodedFileName}`
+      // Get user role from localStorage
+      const storedUser = localStorage.getItem('bookleaf_user')
+      const userRole = storedUser ? JSON.parse(storedUser).role : 'author'
+      const endpoint = userRole === 'admin' ? 'admin' : 'author'
+      const url = `${import.meta.env.VITE_API_BASE_URL}/${endpoint}/tickets/${ticketId}/files/${messageId}/${encodedFileName}`
 
       const response = await fetch(url, {
         credentials: 'include',

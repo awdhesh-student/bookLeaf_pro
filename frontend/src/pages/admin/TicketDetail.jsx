@@ -238,9 +238,9 @@ export default function AdminTicketDetail() {
       const result = await adminAPI.generateAIDraft(id)
       message.success('AI draft generated')
 
-      // Broadcast via Socket.IO
-      if (socketRef.current && result.aiDraft) {
-        socketRef.current.broadcastAIDraftGenerated(id, result.aiDraft)
+      // Broadcast via Socket.IO using the socket service
+      if (result.aiDraft) {
+        socketService.broadcastAIDraftGenerated(id, result.aiDraft)
       }
 
       fetchTicket()

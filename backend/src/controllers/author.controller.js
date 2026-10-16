@@ -436,6 +436,55 @@ const addPublicReplyWithAttachment = asyncHandler(async (req, res) => {
   }
 })
 
+// GET /api/v1/author/tickets/:id/files/:messageId/:fileName
+const downloadFile = asyncHandler(async (req, res) => {
+  const { id: ticketId, messageId, fileName } = req.params
+  const authorId = req.user.authorId
+
+  // Verify ticket exists and belongs to this author
+  const ticket = await Ticket.findById(ticketId)
+  if (!ticket || ticket.authorId.toString() !== authorId) {
+    throw AppError('Ticket not found.', {
+      statusCode: 404,
+      code: 'TICKET_NOT_FOUND',
+    })
+  }
+
+  // Verify message exists
+  const message = await TicketMessage.findById(messageId)
+  if (!message || message.ticketId.toString() !== ticketId) {
+    throw AppError('Message not found.', {
+      statusCode: 404,
+      code: 'MESSAGE_NOT_FOUND',
+    })
+  }
+
+  // Find the file in attachments
+  const attachment = message.attachments.find((a) => a.fileName === decodeURIComponent(fileName))
+
+  if (!attachment) {
+    throw AppError('File not found.', {
+      statusCode: 404,
+      code: 'FILE_NOT_FOUND',
+    })
+  }
+
+  // For local development: send file from uploads folder
+  // For production (Vercel): would need cloud storage
+  const path = require('path')
+  const fs = require('fs')
+  const filePath = path.join(__dirname, `../../uploads/${attachment.filePath.split('/').pop()}`)
+
+  if (fs.existsSync(filePath)) {
+    res.download(filePath, attachment.fileName)
+  } else {
+    throw AppError('File not available for download.', {
+      statusCode: 410,
+      code: 'FILE_UNAVAILABLE',
+    })
+  }
+})
+
 module.exports = {
   getDashboard,
   getBooks,
@@ -444,6 +493,7 @@ module.exports = {
   getTicketDetail,
   addPublicReply,
   addPublicReplyWithAttachment,
+  downloadFile,
   searchTickets,
   getBookStats,
   exportBooksCSV,
