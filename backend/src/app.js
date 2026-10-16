@@ -11,28 +11,28 @@ const errorHandler = require('./middleware/errorHandler')
 const createApp = () => {
   const app = express()
 
-  // CORS configuration - Allow frontend to communicate with backend
-  app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*')
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS, PUT')
-    res.header('Access-Control-Allow-Headers', 'Origin, Content-Type, Authorization')
-    res.header('Access-Control-Expose-Headers', 'Content-Type, Authorization')
-    res.header('Access-Control-Max-Age', '86400')
-    
-    if (req.method === 'OPTIONS') {
-      return res.sendStatus(200)
-    }
-    next()
-  })
-
-  // Also use cors package for additional safety
+  // CORS MUST be set up FIRST, before any routes
   app.use(cors({
     origin: '*',
     credentials: false,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS', 'PUT'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS', 'PUT', 'HEAD'],
+    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
+    exposedHeaders: ['Content-Type', 'Authorization'],
+    maxAge: 86400,
   }))
-  
+
+  // Handle preflight requests
+  app.options('*', cors())
+
+  // Manual CORS headers as fallback
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*')
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS, PUT, HEAD')
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
+    res.header('Access-Control-Expose-Headers', 'Content-Type, Authorization')
+    next()
+  })
+
   app.use(express.json({ limit: '1mb' }))
   app.use(cookieParser())
 
