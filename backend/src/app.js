@@ -11,27 +11,21 @@ const errorHandler = require('./middleware/errorHandler')
 const createApp = () => {
   const app = express()
 
-  // CORS MUST be first middleware
-  // Allow all origins for development/testing
-  app.use(cors({
-    origin: true, // Accept all origins
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+  // CORS configuration - simplified for Vercel
+  const corsOptions = {
+    origin: function(origin, callback) {
+      // Allow any origin (frontend URLs change on Vercel)
+      callback(null, true)
+    },
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
     exposedHeaders: ['Content-Type', 'Authorization'],
-  }))
+    maxAge: 3600,
+  }
 
-  // Handle preflight for all routes
-  app.options('*', cors())
-  
-  // Explicit CORS headers
-  app.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', req.get('origin') || '*')
-    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS')
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-    res.setHeader('Access-Control-Allow-Credentials', 'true')
-    next()
-  })
+  app.use(cors(corsOptions))
+  app.options('*', cors(corsOptions))
 
   app.use(express.json({ limit: '1mb' }))
   app.use(cookieParser())
