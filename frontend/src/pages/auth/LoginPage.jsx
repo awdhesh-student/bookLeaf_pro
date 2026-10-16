@@ -102,18 +102,6 @@ export default function LoginPage() {
                 </Button>
               </Form.Item>
             </Form>
-
-            <div className="login-demo-info">
-              <p style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
-                Demo Accounts:
-              </p>
-              <p style={{ fontSize: '12px', margin: '4px 0' }}>
-                👤 Author: Check database seed
-              </p>
-              <p style={{ fontSize: '12px', margin: '4px 0' }}>
-                👨‍💼 Admin: Check database seed
-              </p>
-            </div>
           </Card>
         </Col>
       </Row>
