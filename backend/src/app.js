@@ -11,25 +11,25 @@ const errorHandler = require('./middleware/errorHandler')
 const createApp = () => {
   const app = express()
 
-  // CORS MUST be set up FIRST, before any routes
+  // CORS MUST be first middleware
+  // Allow all origins for development/testing
   app.use(cors({
-    origin: '*',
-    credentials: false,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS', 'PUT', 'HEAD'],
-    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization'],
+    origin: true, // Accept all origins
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
     exposedHeaders: ['Content-Type', 'Authorization'],
-    maxAge: 86400,
   }))
 
-  // Handle preflight requests
+  // Handle preflight for all routes
   app.options('*', cors())
-
-  // Manual CORS headers as fallback
+  
+  // Explicit CORS headers
   app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*')
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PATCH, DELETE, OPTIONS, PUT, HEAD')
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization')
-    res.header('Access-Control-Expose-Headers', 'Content-Type, Authorization')
+    res.setHeader('Access-Control-Allow-Origin', req.get('origin') || '*')
+    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    res.setHeader('Access-Control-Allow-Credentials', 'true')
     next()
   })
 
