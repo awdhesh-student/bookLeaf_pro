@@ -13,15 +13,11 @@ const createApp = () => {
 
   // CORS configuration - simplified for Vercel
   const corsOptions = {
-    origin: function(origin, callback) {
-      // Allow any origin (frontend URLs change on Vercel)
-      callback(null, true)
-    },
-    credentials: true,
+    origin: '*',
+    credentials: false,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS', 'HEAD'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With'],
     exposedHeaders: ['Content-Type', 'Authorization'],
-    maxAge: 3600,
   }
 
   app.use(cors(corsOptions))

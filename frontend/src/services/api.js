@@ -6,7 +6,6 @@ export const apiClient = {
     console.log('API Request:', { url, method: options.method || 'GET' })
     
     const response = await fetch(url, {
-      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         ...options.headers,
@@ -82,14 +81,14 @@ export const authorAPI = {
   exportBooksCSV: async (filters) => {
     const params = new URLSearchParams(filters).toString()
     const url = `${API_BASE_URL}/author/books/export/csv${params ? `?${params}` : ''}`
-    const response = await fetch(url, { credentials: 'include' })
+    const response = await fetch(url)
     const blob = await response.blob()
     return blob
   },
   exportBooksJSON: async (filters) => {
     const params = new URLSearchParams(filters).toString()
     const url = `${API_BASE_URL}/author/books/export/json${params ? `?${params}` : ''}`
-    const response = await fetch(url, { credentials: 'include' })
+    const response = await fetch(url)
     return response.json()
   },
   getTickets: (filters) => {
@@ -103,14 +102,14 @@ export const authorAPI = {
   exportTicketsCSV: async (filters) => {
     const params = new URLSearchParams(filters).toString()
     const url = `${API_BASE_URL}/author/tickets/export/csv${params ? `?${params}` : ''}`
-    const response = await fetch(url, { credentials: 'include' })
+    const response = await fetch(url)
     const blob = await response.blob()
     return blob
   },
   exportTicketsJSON: async (filters) => {
     const params = new URLSearchParams(filters).toString()
     const url = `${API_BASE_URL}/author/tickets/export/json${params ? `?${params}` : ''}`
-    const response = await fetch(url, { credentials: 'include' })
+    const response = await fetch(url)
     return response.json()
   },
   createTicket: (data) => apiClient.post('/author/tickets', data),
@@ -139,14 +138,14 @@ export const adminAPI = {
   exportTicketsCSV: async (filters) => {
     const params = new URLSearchParams(filters).toString()
     const url = `${API_BASE_URL}/admin/tickets/export/csv${params ? `?${params}` : ''}`
-    const response = await fetch(url, { credentials: 'include' })
+    const response = await fetch(url)
     const blob = await response.blob()
     return blob
   },
   exportTicketsJSON: async (filters) => {
     const params = new URLSearchParams(filters).toString()
     const url = `${API_BASE_URL}/admin/tickets/export/json${params ? `?${params}` : ''}`
-    const response = await fetch(url, { credentials: 'include' })
+    const response = await fetch(url)
     return response.json()
   },
   bulkUpdateTickets: (ticketIds, updates) => 
